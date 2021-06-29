@@ -1052,7 +1052,7 @@ test _b[1.AKI_YESNO#c.base_eGFR] = 0, small
 test _b[2.GNDISEASE#1.AKI_YESNO#c.base_eGFR] = 0, small
 test _b[1.AKI_YESNO#c.month#c.base_eGFR] = 0, small
 // four-way interaction term and P value 
-test _b[2.GNDISEASE#1.AKI_YESNO#c.month#c.base_eGFR] = 0, 
+test _b[2.GNDISEASE#1.AKI_YESNO#c.month#c.base_eGFR] = 0, small 
 local pval = r(p)
 local spval  = string( `pval', "%4.3f")
 
