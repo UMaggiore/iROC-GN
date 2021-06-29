@@ -1,1193 +1,9 @@
-clear
-cap log using "C:\Users\Pc\Box\Waldman Projects\analysis iROC-GN `c(current_date)'.smcl", replace
-clear
-cd "C:\Users\Pc\Box\Waldman Projects"
-import delimited "GlomerularDiseaseReg_DATA_LABELS_2021-06-08_0733.csv", encoding(UTF-8) 
-
-
-////////////////////////////////////////////////////////////////////////////////
-**#   START PREPARING DATASET           ///////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-version 17.0
-*-------------------------------------------------------------------------------
-* START REMOVING RECORDS NOT TO BE INCLUDED
-*-------------------------------------------------------------------------------
-
-
-note recordid: 84 (renal Tx), 165 (Fabry), 191 (unsure whether this is control)
-foreach num of numlist 5 22 24 27 32 80 84 85 87 91 100 128 146 151 158 159 165 ///
-	174 191 208 {
-	drop if recordid ==  `num'
-	 }
-	 
-	 
-*-------------------------------------------------------------------------------
-* END REMOVING RECORDS NOT TO BE INCLUDED
-*-------------------------------------------------------------------------------
-
-*-------------------------------------------------------------------------------
-* START CHECKING PATIENT ID
-*-------------------------------------------------------------------------------
-
-inspect subjectid
-inspect recordid
-inspect subjectid if eventname == "initial contact"
-inspect subjectid if eventname == "follow up 1"
-inspect recordid if eventname == "initial contact"
-inspect recordid if eventname == "follow up 1"
-gen row = 0
-replace row = 1 if eventname == "follow up 1"
-replace row = 2 if eventname == "follow up 2"
-label define row 0 "initial contact" 1 "follow up 1" 2 "follow up 2"
-label values row row
-sort recordid row
-
-*-------------------------------------------------------------------------------
-* END CHECKING PATIENT ID
-*-------------------------------------------------------------------------------
-	 
-*-------------------------------------------------------------------------------
-* START FILLING  IN EMPTY VALUES FOR GNDISEASE VAR
-*-------------------------------------------------------------------------------
-
-replace doesthepatienthaveglomerulardise = trim(doesthepatienthaveglomerulardise)
-replace doesthepatienthaveglomerulardise = "Yes" ///
-	if  (doesthepatienthaveglomerulardise == "" & eventname=="initial contact")
-	
-*-------------------------------------------------------------------------------
-* END FILLING  IN EMPTY VALUES FOR GNDISEASE VAR
-*-------------------------------------------------------------------------------
-
-
-*-------------------------------------------------------------------------------
-* START CORRECTING STRING VARIABLES THAT SHOULD BE NUMERIC
-*-------------------------------------------------------------------------------
-replace serumcreatininepriortocovidinfec = serumcreatininepriortocovidinfec / 88.42 if specifyserumcreatininescrunitsus == "umol/L"
-destring hiddenorigquestionestimatedgfrpr, replace force ignore(">") 
-destring proteinuriaquantifiedpriortocovi, replace force ignore("<" "mg/dl" "trace" "negative") 
-replace proteinuriaquantifiedpriortocovi = proteinuriaquantifiedpriortocovi * 0.00884 if proteinuriaspecifyunitsofmeasure == "mg/mmol"
-replace proteinuriaquantifiedpriortocovi = proteinuriaquantifiedpriortocovi * 1.0 if proteinuriaspecifyunitsofmeasure == "mg/mg"
-replace proteinuriaquantifiedpriortocovi = proteinuriaquantifiedpriortocovi / 1000  if (proteinuriaspecifyunitsofmeasure == "mg/mg" & proteinuriaquantifiedpriortocovi > 40 & !missing(proteinuriaquantifiedpriortocovi))
-replace proteinuriaquantifiedpriortocovi = proteinuriaquantifiedpriortocovi / 1000  if (proteinuriaspecifyunitsofmeasure == "g/24 hr" & proteinuriaquantifiedpriortocovi > 40 & !missing(proteinuriaquantifiedpriortocovi))
-replace proteinuriaquantifiedpriortocovi = . if proteinuriaspecifyunitsofmeasure =="NA or unknown"
-
-destring oralpredisonedoseifapplicable, replace force ignore("mg")
-destring hiddenserumcreatininenormalizedt, replace force
-destring serumalbuminpriortoinfection, replace force
-replace serumalbuminpriortoinfection = serumalbuminpriortoinfection /10 if specifyserumalbuminunitstobeused == "g/L"
-destring elapsedtimefromprecovidserologie, replace force
-destring whatwasthemostrecentvalueofc3pri, replace force ignore("normal")
-destring whatwasthemostrecentvalueofc4pri, replace force ignore("normal")
-destring specifyapproximatenumberofdaysof, replace force ignore("prior to diagnosis" "symptoms started end of March 2020 - .." "unknown")
-destring durationoftimeonventilator, force replace
-destring wbc, replace force
-replace wbc = wbc * 1000 if wb < 100
-destring hemoglobin, replace force
-replace hemoglobin = hemoglobin / 10 if hemoglobin > 30
-destring platelet, replace force
-replace platelet = platelet * 1000 if platelet < 1000
-destring lymphocytecountabsolute, force replace ignore("% (no absolute calculated)")
-replace lymphocytecountabsolute = lymphocytecountabsolute * wbc if lymphocytecountabsolute < 1
-replace lymphocytecountabsolute = lymphocytecountabsolute/100 * wbc if lymphocytecountabsolute == 23.0
-replace lymphocytecountabsolute = lymphocytecountabsolute * 100 if lymphocytecountabsolute >= 1 & lymphocytecountabsolute < 10
-destring absoluteneutrophilcount, force replace ignore("% (no absolute calculated)")
-replace absoluteneutrophilcount = absoluteneutrophilcount * 1000 if absoluteneutrophilcount >= 1 & absoluteneutrophilcount < 50
-destring cd4count, force replace
-replace cd4count = cd4count * 100 if cd4count < 1
-destring cd8count, force replace
-replace cd8count = cd8count * 100 if cd8count < 1
-destring ddimer, force replace ignore("<")
-replace ddimer = ddimer * 1000 if ddimerunits == "ng/ml"
-replace ddimer = ddimer * 1    if ddimerunits == "mg/l"
-replace ddimer = ddimer / 1000 if ddimer > 50000 & !missing(ddimer)
-replace ddimer = ddimer * 1000 if ddimer < 50
-destring creactiveprotein, force replace
-replace creactiveprotein = creactiveprotein * 10 if whataretheunitsforcrp == "mg/dl"
-destring esr, replace force ignore(">")
-destring il6, replace force ignore("pg/mL" "pg/ml")
-destring fibrinogen, replace force ignore(">")
-replace fibrinogen = fibrinogen * 100 if fibrinogen < 10
-destring ferritin, replace force
-replace ferritin = ferritin * 100 if ferritin < 1
-destring lactatedehydrogenaseldh, replace force ignore("U/L")
-replace lactatedehydrogenaseldh = lactatedehydrogenaseldh * 1000 if lactatedehydrogenaseldh < 1
-destring cpk, replace force
-destring lactate, replace force 
-replace lactate = lactate / 1000 if lactate > 100
-destring whatwastotalcumulativedosageofst, replace force
-destring equivalentdoseinprednisone, replace force
-destring serumcreatinineonadmissionifhosp, replace force ignore("Died within 48 hours of admission")
-replace serumcreatinineonadmissionifhosp = serumcreatinineonadmissionifhosp / 88.42 if serumcreatinineonadmissionifhosp > 20 & !missing(serumcreatinineonadmissionifhosp)
-destring peakserumcreatinineduringcovidin, replace force ignore("Died within 48 hours of admission")
-replace peakserumcreatinineduringcovidin = peakserumcreatinineduringcovidin / 88.42 if peakserumcreatinineduringcovidin > 30 & !missing(peakserumcreatinineduringcovidin)
-destring timebetweencoviddiagnosisandpeak, replace force
-destring numberofdaystopeakserumcreatinin, replace force ignore("-Feb" "NA" "Died within 48 hours of admission")
-destring serumalbuminduringcovidinfection, replace force ignore("Died within 48 hours of admission")
-replace serumalbuminduringcovidinfection = serumalbuminduringcovidinfection / 10 if serumalbuminduringcovidinfection > 10
-destring whatwasthelowestvaluenadirofseru, replace force
-destring peakproteinuriaquantifiedduringc, replace force ignore("+" "mg/dL" "negative" "no measure" "Died within 48 hours of admission")
-replace peakproteinuriaquantifiedduringc = peakproteinuriaquantifiedduringc * 0.00884 if v397 == "mg/mmol"
-replace peakproteinuriaquantifiedduringc = peakproteinuriaquantifiedduringc * 1.0 if v397 == "mg/mg"
-replace peakproteinuriaquantifiedduringc = peakproteinuriaquantifiedduringc / 1000  if (v397 == "mg/mg" & peakproteinuriaquantifiedduringc > 40 & !missing(peakproteinuriaquantifiedduringc))
-replace peakproteinuriaquantifiedduringc = peakproteinuriaquantifiedduringc / 1000  if (v397 == "g/24 hr" & peakproteinuriaquantifiedduringc > 40 & !missing(peakproteinuriaquantifiedduringc))
-replace v397 = trim(v397)
-replace peakproteinuriaquantifiedduringc =. if (v397 == "NA or unknown" | v397 == "dipstick 1+" | v397 == "dipstick 2+" | v397 == "dipstick 3+" | v397 == "dipstick 4+")
-
-destring ifdeathdayssincediagnosis, replace force
-destring timeelapsedfromcoviddiagnosistod, replace force
-destring ifhospitalizedlengthofhospitalst, replace force ignore("and ongoing")
-destring dayssincecoviddiagnosis, replace force ignore("Died within 48 hours of admission" "No renal follow up since illness" "no follow up data yet" "unknown")
-destring timesincecoviddiagnosis, replace force
-destring serumcreatinineaftercovidinfecti, replace force ignore("NA")
-replace serumcreatinineaftercovidinfecti = serumcreatinineaftercovidinfecti / 88.42 if serumcreatinineaftercovidinfecti > 20 & !missing(serumcreatinineaftercovidinfecti)
-destring hiddenorigquestionnowcalcestimat, replace force ignore(">" "NA")
-destring timeelapsedfromcoviddiagnosistof, replace force
-destring hiddennormalizedserumcreatininet, replace force
-destring estimatedgfraftercovidinfection, replace force
-destring proteinuriaquantifiedaftercovidi, replace force ignore("mg/dL" "NA" "negative")
-replace proteinuriaquantifiedaftercovidi = proteinuriaquantifiedaftercovidi * 0.00884 if proteinuriaspecifyunits == "mg/mmol"
-replace proteinuriaquantifiedaftercovidi = proteinuriaquantifiedaftercovidi * 1.0 if proteinuriaspecifyunits == "mg/mg"
-replace proteinuriaquantifiedaftercovidi = proteinuriaquantifiedaftercovidi / 1000  if (proteinuriaspecifyunits == "mg/mg" & proteinuriaquantifiedaftercovidi > 40 & !missing(proteinuriaquantifiedaftercovidi))
-replace proteinuriaquantifiedaftercovidi = proteinuriaquantifiedaftercovidi / 1000  if (proteinuriaspecifyunits == "g/24 hr" & proteinuriaquantifiedaftercovidi > 40 & !missing(proteinuriaquantifiedaftercovidi))
-
-destring serumalbuminaftercovidinfection, replace force ignore("NA")
-destring timefromcoviddiagnosistodeath, replace force
-destring followuptimepointsincecovid19dia, replace force
-destring timesincedischargefromhospitaliz, replace force
-destring whatiscurrentweight, replace force
-destring mostrecentserumcreatinine, replace force
-replace mostrecentserumcreatinine = mostrecentserumcreatinine / 88.42 if mostrecentserumcreatinine > 20 & !missing(mostrecentserumcreatinine)
-destring hiddencreatininenormalizedvaluet, replace force
-destring estimatedgfr, replace force
-destring timingofserumcreatininerelativet, replace force
-destring mostrecentserumalbuminfromsameda, replace force
-replace mostrecentserumalbuminfromsameda = mostrecentserumalbuminfromsameda / 10 if mostrecentserumalbuminfromsameda > 10
-destring mostrecentproteinuriavaluefromsa, replace force 
-replace mostrecentproteinuriavaluefromsa = mostrecentproteinuriavaluefromsa * 0.00884 if specifyunitsofmeasurementofprote == "mg/mmol"
-replace mostrecentproteinuriavaluefromsa = mostrecentproteinuriavaluefromsa * 1.0 if specifyunitsofmeasurementofprote == "mg/mg"
-replace mostrecentproteinuriavaluefromsa = mostrecentproteinuriavaluefromsa / 1000  if (specifyunitsofmeasurementofprote == "mg/mg" & mostrecentproteinuriavaluefromsa > 40 & !missing(mostrecentproteinuriavaluefromsa))
-replace mostrecentproteinuriavaluefromsa = mostrecentproteinuriavaluefromsa / 1000  if (specifyunitsofmeasurementofprote == "g/24 hr" & mostrecentproteinuriavaluefromsa > 40 & !missing(mostrecentproteinuriavaluefromsa))
-
-destring timingoflabs2ndsetrelativetocovi, replace force
-destring serumcreatininefromadifferent2nd, replace force
-replace serumcreatininefromadifferent2nd = serumcreatininefromadifferent2nd / 88.42 if serumcreatininefromadifferent2nd > 20
-destring v466, replace force
-destring estimatedgfr2ndset, replace force
-destring serumalbuminfromdifferent2ndtime, replace force
-replace serumalbuminfromdifferent2ndtime = serumalbuminfromdifferent2ndtime / 10 if serumalbuminfromdifferent2ndtime > 10
-destring proteinuriaquantificationfromdif, replace force
-replace proteinuriaquantificationfromdif = proteinuriaquantificationfromdif * 0.00884 if specifyunitsofmeasurementforprot == "mg/mmol"
-replace proteinuriaquantificationfromdif = proteinuriaquantificationfromdif * 1.0 if specifyunitsofmeasurementforprot == "mg/mg"
-replace proteinuriaquantificationfromdif = proteinuriaquantificationfromdif / 1000  if (specifyunitsofmeasurementforprot == "mg/mg" & proteinuriaquantificationfromdif > 40 & !missing(proteinuriaquantificationfromdif))
-replace proteinuriaquantificationfromdif = proteinuriaquantificationfromdif / 1000  if (specifyunitsofmeasurementforprot == "g/24 hr" & proteinuriaquantificationfromdif > 40 & !missing(proteinuriaquantificationfromdif))
-
-
-summ mostrecentproteinuriabydipsticki proteinuriabydipstickfromdiffere proteinuriabydipstick3rdsetoflab
-
-foreach var of varlist ///
-	mostrecentproteinuriabydipsticki ///
-	proteinuriabydipstickfromdiffere ///
-	proteinuriabydipstick3rdsetoflab  {
-    // remove the last character as var name may have max name length (32)
-	local new = substr("`var'", 1, length("`var'")-1)
-	// store variable label
-	local x : variable label `var'	 
-	gen  `new' = .
-	// attach variable label
-    label variable `new' "`x'"
-	qui replace `new' = 0 if `var' == "negative"
-	qui replace `new' = 1 if `var' == "1+"
-	qui replace `new' = 2 if `var' == "2+"
-	qui replace `new' = 3 if `var' == "3+"
-	qui replace `new' = . if `var' == "Not available"
-	drop `var'
-		}
-
-
-
-destring timingoflabs3rdsetrelativetocovi, replace force
-destring serumcreatininevalue3rdsetoflabs, replace force
-replace serumcreatininevalue3rdsetoflabs = serumcreatininevalue3rdsetoflabs / 88.42 if serumcreatininevalue3rdsetoflabs > 20 & !missing(serumcreatininevalue3rdsetoflabs)
-destring v476, replace force
-destring estimatedgfr3rdset, replace force
-replace serumalbuminduringcovidinfection = serumalbuminduringcovidinfection / 10 if serumalbuminduringcovidinfection > 10
-destring serumalbuminvalue3rdsetoflabs, replace force 
-replace serumalbuminvalue3rdsetoflabs = serumalbuminvalue3rdsetoflabs / 10 if serumalbuminvalue3rdsetoflabs > 10
-destring proteinuriaquantification3rdseto, replace force
-replace proteinuriaquantification3rdseto = proteinuriaquantification3rdseto if v480 == "mg/mmol"
-replace proteinuriaquantification3rdseto = proteinuriaquantification3rdseto if v480 == "mg/mg"
-destring whatisthec3labvalue, replace force
-replace whatisthec3labvalue = whatisthec3labvalue * 100 if whatisthec3labvalue < 2
-destring whatisthec4labvalue, replace force
-replace whatisthec4labvalue = whatisthec4labvalue * 100 if whatisthec4labvalue < 1
-
-destring lactatedehydrogenaseldh, replace force
-
-encode doyouhaveadditionallabvaluesfors, gen(doyouhaveadditionallabvaluesfor)
-drop doyouhaveadditionallabvaluesfors
-encode doyouhavemorelabvaluesforserumcr, gen(doyouhavemorelabvaluesforserumc)
-drop doyouhavemorelabvaluesforserumcr
-encode livergiissueschoicepancreatitis, gen(livergiissueschoicepancreatiti)
-drop livergiissueschoicepancreatitis
-encode specifyserumcreatinineunitsusedi, gen(specifyserumcreatinineunitsused)
-drop specifyserumcreatinineunitsusedi
-encode specifyserumalbuminunitstobeused, gen(specifyserumalbuminunitstobeuse)
-drop specifyserumalbuminunitstobeused
-encode specifyserumalbuminunitsusedinyo, gen(specifyserumalbuminunitsusediny)
-drop specifyserumalbuminunitsusediny
-encode didyourepeatarenalbiopsyonthispa, gen(didyourepeatarenalbiopsyonthisp)
-drop didyourepeatarenalbiopsyonthisp
-
-replace patientheightcm = patientheightcm * 100 if patientheightcm < 50
-replace patientheightcm = 175 if patientheightcm == 75
-gen BMI = patientweightkg  / (patientheightcm/ 100) ^2
-
-
-rename v819 _alb_pre
-rename v978 _alb_during
-rename v993 _alb_after
-
-rename v984 diag_to_death_days
-
-label define yesno 0 "No" 1 "Yes"
-label define yes2no1 1 "No" 2 "Yes"
-
-* convert categorical strings into labeled numeric
-encode gender, gen(GENDER)
-encode race, gen(RACE)
-gen NON_WHITE = (RACE != 6) & !missing(RACE) 
-encode doesthepatienthaveglomerulardise, gen(GNDISEASE)
-encode approximatedurationofkidneydisea, gen(_DURATION_GN)
-recode _DURATION_GN (1= 1 "1-6  months") (2 = 3 "12-24 month") (3 = 4 "2-5 years") (4 = 2 "6-12 months") (5 = 5 ">5 years"), gen(DURATION_GN)
-
-encode wasthepatienthospitalized, gen(HOSPITALIZED)
-
-replace HOSPITALIZED = 2 if recordid == 111
-
-encode v184, gen(TRANSPLANT)
-encode v177, gen(ESKD)
-encode didthepatienthavepreexistingglo, gen(PRE_EX_GN)
-
-encode didthepatientdie, gen(DEATH)
-tab didthepatientdie DEATH
-
-replace DEATH = 1 if missing(DEATH)
-tab DEATH
-replace DEATH = 2 if isthepatientalive == "No"
-tab DEATH
-recode DEATH (1 = 0 "No") (2 = 1 "Yes"), gen(DEATH_YESNO) label(deathyesno)
-tab DEATH_YESNO
-
-egen _sumdeath = sum(DEATH_YESNO), by(recordid)
-replace DEATH_YESNO = 1 if _sumdeath > 0 & DEATH_YESNO == 0
-
-encode ethnicity, gen(ETHNICITY)
-encode glomerulardiseasediagnosis, gen(GLOM_DIS_DIAG)
-
-
-encode hematuriaondipstick, gen(HEMAT_PRE)
-encode hematuriaurinalysisdipstick, gen(HEMAT_ADM)
-encode v419, gen(HEMAT_POST)
-
-
-*-------------------------------------------------------------------------------
-* END CORRECTING STRING VARIABLES THAT SHOULD BE NUMERIC
-*-------------------------------------------------------------------------------
-
-*-------------------------------------------------------------------------------
-* START COMPLETE DROPPING NON-ELIGIBLE PATIENTS
-*-------------------------------------------------------------------------------
-
-drop if PRE_EX_GN == 2
-drop if TRANSPLANT == 1
-* there are no patients with ESKD left
-
-
-*-------------------------------------------------------------------------------
-* END COMPLETE DROPPING NON-ELIGIBLE PATIENTS
-*-------------------------------------------------------------------------------
-
-*-------------------------------------------------------------------------------
-* START CORRECTING STRING DATES INTO STATA DATES
-*-------------------------------------------------------------------------------
-
-*---- Start converting string dates into Stata dates
-
-foreach var of varlist ///
-dateofcoviddiagnosis whenwasthisserumcreatininelastch ///
-whenwasthelasttimeyoucheckedrele whenwasthepatienthospitalized ///
-dateofinitialsetoflabsafterdiagn whatisthedateofthispeakserumcrea ///
-dateoffollowupclosetohospitaldis dateserumcreatininemeasured ///
-dateofserumcreatininelabaftercov whatwasthedateoftheoriginaldiagn ///
-dateofadditional2ndsetlabs dateofadditional3rdsetoflabs whendidthepatientdie ///
-specifyserumcreatininescrunitsus dateofdeath ///
-whenwasivcorticosteroidslastadmi ///
-	{
-    // remove the last character as var name may have max name length (32)
-	local new = substr("`var'", 1, length("`var'")-1)
-	// store variable label
-	local x : variable label `var'
-	// convert string into dates
-	gen double `new'  = date(`var',"MD20Y")
-	format `new' %td
-	drop `var' 
-	// attach variable label
-    label variable `new' "`x'"
-		}
-	
-	// convert string date that includes clock
-	gen double _v426 = clock(v426,"MD20Y hm")
-	format _v426 %tc
-	gen double __v426 = dofc(_v426)
-	format __v426 %td
-	drop v426 _v426
-	rename __v426  v426
-	
-list dateofadditional2ndsetlab ///
-	dateofadditional3rdsetoflab if (eventname != "initial contact"), ///
-	sepby(recordid) noobs	
-	
-
-* Start display name of date vars
-ds, has(format %t*)
-describe `r(varlist)', fullnames
-qui ds, has(format %t*)
-tabstat `r(varlist)', stat(n mean min max) col(stat) varwidth(32)
-findname, format(%t*) varwidth(31)
-
-* double check label and dates
-lookfor "When was this serum creatinine last checked"
-di r(varlist)
-lookfor "Date of COVID diagnosis"
-di r(varlist)
-lookfor "What was the date of the original diagnosis of COVID?"
-di r(varlist)
-lookfor "When was the patient hospitalized?"
-di r(varlist)
-lookfor "Date of initial set of labs after diagnosis of COVID"
-di r(varlist)
-lookfor "What is the date of this peak serum creatinine?"
-di r(varlist)
-lookfor "Date serum creatinine measured"
-di r(varlist)
-lookfor "Date of serum creatinine lab after covid infection"
-di r(varlist)
-lookfor "Date of additional"
-di r(varlist)
-
-
-
-*-------------------------------------------------------------------------------
-* END CORRECTING STRING DATES INTO STATA DATES
-*-------------------------------------------------------------------------------
-
-*-------------------------------------------------------------------------------
-* START CHECKING VAR NAMES WITH CREATININE
-*-------------------------------------------------------------------------------
-
-* Start display name of date vars
-ds, has(format %t*)
-describe `r(varlist)', fullnames
-qui ds, has(format %t*)
-tabstat `r(varlist)', stat(n mean min max) col(stat) varwidth(32)
-findname, format(%t*) varwidth(31)
-
-* double check label and dates
-lookfor "When was this serum creatinine last checked"
-di r(varlist)
-lookfor "Date of COVID diagnosis"
-di r(varlist)
-lookfor "What was the date of the original diagnosis of COVID?"
-di r(varlist)
-lookfor "When was the patient hospitalized?"
-di r(varlist)
-lookfor "Date of initial set of labs after diagnosis of COVID"
-di r(varlist)
-lookfor "What is the date of this peak serum creatinine?"
-di r(varlist)
-lookfor "Date serum creatinine measured"
-di r(varlist)
-lookfor "Date of serum creatinine lab after covid infection"
-di r(varlist)
-lookfor "Date of additional"
-di r(varlist)
-
-* Variables with label including serum creatinine
-qui lookfor "creat"
-di r(varlist)
-describe `r(varlist)', fullnames
-qui lookfor "creat"
-tabstat `r(varlist)', stat(n mean min max) col(stat) varwidth(32)
-* Variables with varname including serum creatinine
-findname, chartext(*creat*) varwidth(32)
-
-*-------------------------------------------------------------------------------
-* END CHECKING VAR NAMES WITH CREATININE
-*-------------------------------------------------------------------------------
-
-*-------------------------------------------------------------------------------
-* START CHECKING VAR NAMES WITH GFR
-*-------------------------------------------------------------------------------
-
-* Variables with label including GFR
-qui lookfor "GFR"
-di r(varlist)
-describe `r(varlist)', fullnames
-qui lookfor "GFR"
-tabstat `r(varlist)', stat(n mean min max) col(stat) varwidth(32)
-
-* Variables with varname including gfr
-findname, chartext(*gfr*) varwidth(32)
-
-*-------------------------------------------------------------------------------
-* END CHECKING VAR NAMES WITH GFR
-*-------------------------------------------------------------------------------
-
-*-------------------------------------------------------------------------------
-* START CHECKING VAR NAMES WITH ALB
-*-------------------------------------------------------------------------------
-
-drop didyourepeatarenalbiopsyonthispa
-drop specifyserumalbuminunitsusedinyo
-* Variables with label including serum albumin
-qui lookfor "alb"
-di r(varlist)
-describe `r(varlist)', fullnames
-qui lookfor "alb"
-tabstat `r(varlist)', stat(n mean min max) col(stat) varwidth(32)
-* Variables with varname including serum albumin
-findname, chartext(*alb*) varwidth(32)
-
-*-------------------------------------------------------------------------------
-* END CHECKING VAR NAMES WITH ALB
-*-------------------------------------------------------------------------------
-
-*-------------------------------------------------------------------------------
-*  START ALLIGNING ROW DATASET BY SPLITTING AND MERGING BY RECORD ID
-*-------------------------------------------------------------------------------
-
-
-**# ALLIGN RECORDS
-*-------------------------------------------------------------------------------
-* START DATASET WITH "initial contact" 1 "follow up 1" "follow up 1" ALLIGNED
-*-------------------------------------------------------------------------------
-
-qui ds, has(format %t*)
-tabstat `r(varlist)', by(row) stat(n mean) col(stat) varwidth(32)
-
-qui qui lookfor "creat"
-tabstat `r(varlist)', by(row) stat(n mean) col(stat) varwidth(32)
-
-qui qui lookfor "gfr"
-tabstat `r(varlist)', by(row) stat(n mean) col(stat) varwidth(32)
-
-
-preserve
-
-qui ds, has(format %t*)
-foreach var of varlist `r(varlist)'  {
-	qui bysort recordid (row): replace `var' = `var'[_n-1] if missing(`var')
-	qui bysort recordid (row): replace `var' = `var'[_n+1] if missing(`var')
-	 }
-qui ds, has(format %t*)
-tabstat `r(varlist)', by(row) stat(n mean) col(stat) varwidth(32)
-
-qui lookfor "timing of"
-foreach var of varlist `r(varlist)'  {
-	qui bysort recordid (row): replace `var' = `var'[_n-1] if missing(`var')
-	qui bysort recordid (row): replace `var' = `var'[_n+1] if missing(`var')
-	 }
-	 
-qui lookfor "elapsed"
-foreach var of varlist `r(varlist)'  {
-	qui bysort recordid (row): replace `var' = `var'[_n-1] if missing(`var')
-	qui bysort recordid (row): replace `var' = `var'[_n+1] if missing(`var')
-	 }
-
-qui lookfor "creat"
-foreach var of varlist `r(varlist)'  {
-	qui bysort recordid (row): replace `var' = `var'[_n-1] if missing(`var')
-	qui bysort recordid (row): replace `var' = `var'[_n+1] if missing(`var')
-	 }
-qui lookfor "creat"
-tabstat `r(varlist)', by(row) stat(n mean) col(stat) varwidth(32)
-
-qui lookfor "gfr"
-foreach var of varlist `r(varlist)'  {
-	qui bysort recordid (row): replace `var' = `var'[_n-1] if missing(`var')
-	qui bysort recordid (row): replace `var' = `var'[_n+1] if missing(`var')
-	 }
-qui lookfor "gfr"
-tabstat `r(varlist)', by(row) stat(n mean) col(stat) varwidth(32)
-
-qui lookfor "alb"
-foreach var of varlist `r(varlist)'  {
-	qui bysort recordid (row): replace `var' = `var'[_n-1] if missing(`var')
-	qui bysort recordid (row): replace `var' = `var'[_n+1] if missing(`var')
-	 }
-qui lookfor "alb"
-tabstat `r(varlist)', by(row) stat(n mean) col(stat) varwidth(32)
-
-qui lookfor "prot"
-foreach var of varlist `r(varlist)'  {
-	qui bysort recordid (row): replace `var' = `var'[_n-1] if missing(`var')
-	qui bysort recordid (row): replace `var' = `var'[_n+1] if missing(`var')
-	 }
-qui lookfor "prot"
-
-
-foreach var of varlist wasthepatientdischargedfromhospi isthepatientstillrequiringrenalr {
-	qui bysort recordid (row): replace `var' = `var'[_n-1] if missing(`var')
-	qui bysort recordid (row): replace `var' = `var'[_n+1] if missing(`var')
-	 }
-	 
-foreach var of varlist cardiacissueschoicechestpain cardiacissueschoicecongestivehea ///
-	cardiacissueschoicepericarditis cardiacissueschoicemyocarditis cardiacissueschoicevalvularprobl ///
-	cardiacissueschoicearrhythmia cardiacissueschoicehypertension cardiacissueschoicehypotension ///
-	cardiacissueschoiceother v944 v945 v948  myocardialinfarction v946 /// 
-	arrhythmia wasonsetofthisarrhythmiatemporal v360 cardiacissueschoicearrhythmia v947 /// 
-	centralnervoussystem v952 othercns v955 ///
-	gastrointestinalandhepatobiliary v949  ///
-	pulmonaryembolismpe venousthromboembolismbesidespe v958 v959 ///
-	superimposedinfection v962 {
-	qui bysort recordid (row): replace `var' = `var'[_n-1] if missing(`var')
-	qui bysort recordid (row): replace `var' = `var'[_n+1] if missing(`var')
-		 }
-
-bysort recordid (row): egen __followuptimepointsincecovid19 = max(followuptimepointsincecovid19dia)
-drop followuptimepointsincecovid19dia
-rename __followuptimepointsincecovid19 followuptimepointsincecovid19dia
-label var followuptimepointsincecovid19dia "maximum follow-up time (days)"
-		 
-drop if row !=0
-
-*-------------------------------------------------------------------------------
-* END DATASET WITH "initial contact" 1 "follow up 1" "follow up 1" ALLIGNED
-*-------------------------------------------------------------------------------
-
-*-------------------------------------------------------------------------------
-* START ENCODING CATEGORICAL STRING VARIATES AND GENERATING INDICATOR VARS
-*-------------------------------------------------------------------------------
-
-encode didthepatienthaveanyofthesecomor, gen(HYPERT)
-encode v175, gen(DIABETES)
-encode v186, gen(OBESITY)
-encode v178, gen(CVD)
-encode v180, gen(COPD)
-encode v179, gen(ASTHMA)
-encode v189, gen(LIVER_DIS)
-encode v182, gen(CANCER)
-encode v185, gen(HIV)
-encode v187, gen(SLE)
-encode v188, gen(RA)
-encode v191, gen(SMOKER)
-encode wasthepatientonaaceinhibitoratti, gen(ACEI)
-replace ACEI = 1 if missing(ACEI)
-encode symptomsofcovid19infectionchoice, gen(FEVER)
-encode v205, gen(COUGH)
-encode v206, gen(DYSPNEA)
-encode v212, gen(FATIGUE)
-encode v208, gen(MYALGIA)
-encode v209, gen(GI_SYMPT)
-encode v213, gen(ANOREXIA)
-encode v204, gen(CHILLS)
-encode v211, gen(NASALCONG)
-encode v214, gen(SORETHROAT)
-encode v207, gen(ANOSMIA)
-encode v215, gen(NEUR_SYMPT)
-
-gen byte IgAN_HSP = (GLOM_DIS_DIAG == 2)
-gen byte VASCULITIS =  (GLOM_DIS_DIAG == 9)
-gen byte FSGS_MCD = (GLOM_DIS_DIAG == 1 | GLOM_DIS_DIAG == 6)
-gen byte MN = (GLOM_DIS_DIAG == 5)
-gen byte GN_SLE = (GLOM_DIS_DIAG == 3)
-gen byte EITHER_VASC_SLE = (VASCULITIS == 1 | GN_SLE == 1)
-
-gen byte MPGN = (GLOM_DIS_DIAG == 4)
-gen byte PIGN = (GLOM_DIS_DIAG == 7)
-gen byte TMA = (GLOM_DIS_DIAG == 8)
-gen byte AA_FG = (GLOM_DIS_DIAG == 10 | GLOM_DIS_DIAG == 11 | GLOM_DIS_DIAG == 12)
-
-gen STEROIDS =  cond(steroids =="", 1, 2)
-encode wasthepatienttakingimmunosuppres, gen(IMMUNOSUPPRESSION)
-replace IMMUNOSUPPRESSION = 1 if (missing(IMMUNOSUPPRESSION) & GNDISEASE == 2)
-
-encode v94, gen(AZATHIOPRINE)
-encode v93, gen(MYCOPHENOLATE)
-encode v98, gen(RITUXIMAB)
-encode specifynumberofmonthsthatrituxim, gen(RTX_GRP_MONTHS_BEFORE_COVID)
-gen RTX_MONTHS_BEFORE_COVID = timesincelastrituximabdose / (365.25 / 12)
-encode v95, gen(CNI)
- 
-
-label values STEROIDS yes2no1
-encode v307, gen(TX_STEROID_TYPE)
-encode whatrouteweresteroidsadministere, gen(TX_STEROID_IVOS)
-replace steroid = "" if steroid =="NA"
-encode steroid, gen(TX_STEROID_CONTINUED)
-encode basedontheintialsurveythispatien, gen(TX_STEROID_v2_CONTINUED)
-
-gen TX_HYDROXYCHLO = 0
-replace TX_HYDROXYCHLO  = 1 if v563 != ""
-label values TX_HYDROXYCHLO  yesno
-
-encode wasanticoagulationthromboprophyl, gen(TX_ANTICO_PROPH_YESNO)
-encode otheranticoagulationtherapy, gen(TX_ANTICO_OTHER)
-encode wasanticoagulationgiveninstandar, gen(TX_ANTICO_PROPH_INTENSITY)
-encode didpatientdevelopathromboticeven, gen(COMPL_THROMB_UNDERPRO)
-encode ifpatientwasnotdialysisdependent, gen(RRT)
-recode RRT (1 = 0 "No") (2 = 1 "Yes"), gen(RRT_YESNO) label(rrtyesno)
-encode ifpatientdevelopedakipleaseindic, gen(AKI_STAGE)
-gen byte AKI_YESNO = cond((AKI_STAGE ==1 | AKI_STAGE == 2 | AKI_STAGE ==3), 1, 0)
-
-label values AKI_YESNO yesno
-gen byte AKI_3 = cond((AKI_STAGE ==3), 1, 0)
-label values AKI_3 yesno
-
-label var RRT_YESNO "Developed RRT During Hospital Admission"
-label var AKI_YESNO "Developed AKI During Hospital Admission"
-label var AKI_3 "Developed AKI Stage 3 During Hospital Admission"
-label var AKI_STAGE "AKI Stage Developed During Hospital Admission"
-
-
-replace AKI_YESNO = 0 if missing(AKI_STAGE)
-replace AKI_YESNO = . if HOSPITALIZED == 1
-replace AKI_STAGE = . if HOSPITALIZED == 1
-replace RRT_YESNO = 0 if missing(ifpatientwasnotdialysisdependent) 
-replace RRT = . if HOSPITALIZED == 1
-
-// correction error Jun 12 2021
-replace AKI_YESNO = 1 if RRT_YESNO == 1 & HOSPITALIZED == 2
-
-encode howwouldyoucharacterizetherenald, gen(_howwouldyoucharacterizetherenal)
-gen ACTIVE_GN = 0
-replace ACTIVE_GN = 1 if _howwouldyoucharacterizetherenal == 4 | _howwouldyoucharacterizetherenal == 5 | _howwouldyoucharacterizetherenal == 6
-label var ACTIVE_GN "Active glomerulonephritis"
-label values ACTIVE_GN yesno
-gen UPROT500 = (proteinuriaquantifiedpriortocovi > 500) & !missing(proteinuriaquantifiedpriortocovi)
-label var UPROT500 "Pre-COVID PROTEINURIA > 500mg/day"
-label values UPROT500 yesno
-
-
-encode wasthepatientadmittedtotheintens, gen(ICU)
-replace ICU = 1 if missing(wasthepatientadmittedtotheintens)
-
-encode v227, gen(_PNEUMONIA_WO) 
-encode v228, gen(_PNEUMONIA_WITH)
-encode wasthepatientintubated, gen(INTUBATED)
-
-replace INTUBATED = 1 if missing(wasthepatientintubated)
-replace INTUBATED = . if HOSPITALIZED == 1
-
-encode v230, gen(ARDS)
-encode v231, gen(SEPTIC_SHOCK)
-encode didthepatientrequirepressors, gen(VASOPRESSORS)
-
-replace VASOPRESSORS = 1 if missing(didthepatientrequirepressors)
-replace VASOPRESSORS = . if HOSPITALIZED == 1
-
-encode cardiac, gen(CARDIAC_COMPL) 
-encode cardiacarrest, gen(CARDIAC_ARREST) 
-replace CARDIAC_ARREST = 1 if missing(CARDIAC_ARREST) 
-replace CARDIAC_ARREST = . if missing(CARDIAC_COMPL) & CARDIAC_ARREST == 1
-gen CARDIAC_OTHER = cond(!missing(othercardiaccomplication), 2, 1)
-replace CARDIAC_OTHER = . if missing(CARDIAC_COMPL) & CARDIAC_OTHER == 1
-label values CARDIAC_OTHER yes2no1
-encode arrhythmia, gen(ARRHYTHMIA)
-replace ARRHYTHMIA = 1 if missing(ARRHYTHMIA) & HOSPITALIZED == 2
-encode myocardialinfarction, gen(MI)
-replace MI = 1 if missing(MI)
-
-encode centralnervoussystem, gen(CNS_MAIN)
-gen CNS_OTHER = cond(!missing(othercns), 2, 1)
-replace CNS_OTHER = . if missing(CNS_MAIN) & CNS_OTHER == 1
-label values CNS_OTHER yes2no1
-
-encode gastrointestinalandhepatobiliary, gen(GI)
-
-encode pulmonaryembolismpe, gen(PE)
-replace PE = 1 if missing(PE) & HOSPITALIZED == 2
-encode venousthromboembolismbesidespe, gen(DVT)
-replace DVT = 1 if missing(DVT) & HOSPITALIZED == 2
-
-encode superimposedinfection, gen(SUPERIMP_INFECTION)
- 
-
-// change value label of the variables
-foreach var of varlist TRANSPLANT HYPERT DIABETES OBESITY CVD /// 
-	COPD ASTHMA LIVER_DIS CANCER HIV SLE RA ///
-	SMOKER ///
-	FEVER COUGH DYSPNEA FATIGUE MYALGIA GI_SYMPT ANOREXIA ///
-	CHILLS NASALCONG SORETHROAT ANOSMIA NEUR_SYMPT ///
-	AZATHIOPRINE MYCOPHENOLATE RITUXIMAB CNI ///
-	_PNEUMONIA_WO _PNEUMONIA_WITH ARDS ///
-	SEPTIC_SHOCK ///
-	{
-	* label list HYPERT
-	label define `var' `="Checked":`var'' "Yes", modify
-	label define `var' `="Unchecked":`var'' "No", modify
-	 }
-
-gen PNEUMONIA = cond((_PNEUMONIA_WO == 2 | _PNEUMONIA_WITH == 2), 1, 0)
-label value PNEUMONIA yesno
-replace PNEUMONIA = . if (missing(_PNEUMONIA_WO) & missing(_PNEUMONIA_WITH))
-
-*-------------------------------------------------------------------------------
-* END ENCODING CATEGORICAL STRING VARIATES AND GENERATING INDICATOR VARS
-*-------------------------------------------------------------------------------
-
-*-------------------------------------------------------------------------------
-*  START CHECKING DUPLICATES AFTER ALLIGNMENT
-*-------------------------------------------------------------------------------
-cap drop dup
-duplicates tag age GENDER RACE, gen(dup)
-tab dup
-
-duplicates tag recordid, gen(dup_id)
-drop if dup_id !=0
-
-
-drop if missing(age) & missing(GENDER)
-
-*-------------------------------------------------------------------------------
-*  END CHECKING DUPLICATES AFTER ALLIGNMENT
-*-------------------------------------------------------------------------------
-
-*-------------------------------------------------------------------------------
-* START CALCULATING CKD-EPI eGFR
-*------------------------------------------------------------------------------- 
-
-	gen eGFR_pre = .
-	replace eGFR_pre=141*(serumcreatininepriortocovidinfec/0.9)^(cond(serumcreatininepriortocovidinfec<=0.9,-0.411, -1.209))*0.993^age if gender=="Male" & race!=("Black or African American")
-	replace eGFR_pre=141*1.018*(serumcreatininepriortocovidinfec/0.7)^(cond(serumcreatininepriortocovidinfec<=0.7,-0.329, -1.209))*0.993^age if gender=="Female" & race!=("Black or African American")
-	replace eGFR_pre=141*1.159*(serumcreatininepriortocovidinfec/0.9)^(cond(serumcreatininepriortocovidinfec<=0.9,-0.411, -1.209))*0.993^age if gender=="Male" & race==("Black or African American")
-	replace eGFR_pre=141*1.018*1.159*(serumcreatininepriortocovidinfec/0.7)^(cond(serumcreatininepriortocovidinfec<=0.7,-0.329, -1.209))*0.993^age if gender=="Female" & race==("Black or African American")
-	label var eGFR_pre "eGFR (mL/min/1.73m2) by CKD-EPI before COVID-19"
-	
-	gen time_eGFR_pre = - amountoftimeelapsedfromserumcrea
-
-	
-	gen eGFR_adm = .	
-		replace eGFR_adm=141*(serumcreatinineonadmissionifhosp/0.9)^(cond(serumcreatinineonadmissionifhosp<=0.9,-0.411, -1.209))*0.993^age if gender=="Male" & race!=("Black or African American")
-	replace eGFR_adm=141*1.018*(serumcreatinineonadmissionifhosp/0.7)^(cond(serumcreatinineonadmissionifhosp<=0.7,-0.329, -1.209))*0.993^age if gender=="Female" & race!=("Black or African American")
-	replace eGFR_adm=141*1.159*(serumcreatinineonadmissionifhosp/0.9)^(cond(serumcreatinineonadmissionifhosp<=0.9,-0.411, -1.209))*0.993^age if gender=="Male" & race==("Black or African American")
-	replace eGFR_adm=141*1.018*1.159*(serumcreatinineonadmissionifhosp/0.7)^(cond(serumcreatinineonadmissionifhosp<=0.7,-0.329, -1.209))*0.993^age if gender=="Female" & race==("Black or African American")
-	label var eGFR_adm "eGFR (mL/min/1.73m2) by CKD-EPI on admission"
-	
-	gen time_eGFR_adm = 0
-	
-	
-	gen eGFR_peak = .
-		replace eGFR_peak=141*(peakserumcreatinineduringcovidin/0.9)^(cond(peakserumcreatinineduringcovidin<=0.9,-0.411, -1.209))*0.993^age if gender=="Male" & race!=("Black or African American")
-	replace eGFR_peak=141*1.018*(peakserumcreatinineduringcovidin/0.7)^(cond(peakserumcreatinineduringcovidin<=0.7,-0.329, -1.209))*0.993^age if gender=="Female" & race!=("Black or African American")
-	replace eGFR_peak=141*1.159*(peakserumcreatinineduringcovidin/0.9)^(cond(peakserumcreatinineduringcovidin<=0.9,-0.411, -1.209))*0.993^age if gender=="Male" & race==("Black or African American")
-	replace eGFR_peak=141*1.018*1.159*(peakserumcreatinineduringcovidin/0.7)^(cond(peakserumcreatinineduringcovidin<=0.7,-0.329, -1.209))*0.993^age if gender=="Female" & race==("Black or African American")
-	label var eGFR_peak "eGFR (mL/min/1.73m2) by CKD-EPI at peak SCr"
-	
-	gen time_eGFR_peak = timebetweencoviddiagnosisandpeak
-	
-	gen eGFR_post = .
-	replace eGFR_post=141*(serumcreatinineaftercovidinfecti/0.9)^(cond(serumcreatinineaftercovidinfecti<=0.9,-0.411, -1.209))*0.993^age if gender=="Male" & race!=("Black or African American")
-	replace eGFR_post=141*1.018*(serumcreatinineaftercovidinfecti/0.7)^(cond(serumcreatinineaftercovidinfecti<=0.7,-0.329, -1.209))*0.993^age if gender=="Female" & race!=("Black or African American")
-	replace eGFR_post=141*1.159*(serumcreatinineaftercovidinfecti/0.9)^(cond(serumcreatinineaftercovidinfecti<=0.9,-0.411, -1.209))*0.993^age if gender=="Male" & race==("Black or African American")
-	replace eGFR_post=141*1.018*1.159*(serumcreatinineaftercovidinfecti/0.7)^(cond(serumcreatinineaftercovidinfecti<=0.7,-0.329, -1.209))*0.993^age if gender=="Female" & race==("Black or African American")
-	label var eGFR_post "eGFR (mL/min/1.73m2) by CKD-EPI after COVID-19"
-	
-	gen time_eGFR_post = timeelapsedfromcoviddiagnosistof
-	
-	
-	
-	
-	gen eGFR_2ndfup = .
-			replace eGFR_2ndfup=141*(serumcreatininefromadifferent2nd/0.9)^(cond(serumcreatininefromadifferent2nd<=0.9,-0.411, -1.209))*0.993^age if gender=="Male" & race!=("Black or African American")
-	replace eGFR_2ndfup=141*1.018*(serumcreatininefromadifferent2nd/0.7)^(cond(serumcreatininefromadifferent2nd<=0.7,-0.329, -1.209))*0.993^age if gender=="Female" & race!=("Black or African American")
-	replace eGFR_2ndfup=141*1.159*(serumcreatininefromadifferent2nd/0.9)^(cond(serumcreatininefromadifferent2nd<=0.9,-0.411, -1.209))*0.993^age if gender=="Male" & race==("Black or African American")
-	replace eGFR_2ndfup=141*1.018*1.159*(serumcreatininefromadifferent2nd/0.7)^(cond(serumcreatininefromadifferent2nd<=0.7,-0.329, -1.209))*0.993^age if gender=="Female" & race==("Black or African American")
-	label var eGFR_2ndfup "eGFR (mL/min/1.73m2) by CKD-EPI at 2nd Follow-up"
-	
-	gen time_eGFR_2ndfup = timingoflabs2ndsetrelativetocovi
-	
-	gen eGFR_3rdfup = .
-			replace eGFR_3rdfup=141*(serumcreatininevalue3rdsetoflabs/0.9)^(cond(serumcreatininevalue3rdsetoflabs<=0.9,-0.411, -1.209))*0.993^age if gender=="Male" & race!=("Black or African American")
-	replace eGFR_3rdfup=141*1.018*(serumcreatininevalue3rdsetoflabs/0.7)^(cond(serumcreatininevalue3rdsetoflabs<=0.7,-0.329, -1.209))*0.993^age if gender=="Female" & race!=("Black or African American")
-	replace eGFR_3rdfup=141*1.159*(serumcreatininevalue3rdsetoflabs/0.9)^(cond(serumcreatininevalue3rdsetoflabs<=0.9,-0.411, -1.209))*0.993^age if gender=="Male" & race==("Black or African American")
-	replace eGFR_3rdfup=141*1.018*1.159*(serumcreatininevalue3rdsetoflabs/0.7)^(cond(serumcreatininevalue3rdsetoflabs<=0.7,-0.329, -1.209))*0.993^age if gender=="Female" & race==("Black or African American")
-	label var eGFR_3rdfup "eGFR (mL/min/1.73m2) by CKD-EPI at 3rd Follow-up"
-	
-	gen time_eGFR_3rdfup = timingoflabs3rdsetrelativetocovi
-	
-
-	
-	gen eGFR_recent = .
-			replace eGFR_recent=141*(mostrecentserumcreatinine/0.9)^(cond(mostrecentserumcreatinine<=0.9,-0.411, -1.209))*0.993^age if gender=="Male" & race!=("Black or African American")
-	replace eGFR_recent=141*1.018*(mostrecentserumcreatinine/0.7)^(cond(mostrecentserumcreatinine<=0.7,-0.329, -1.209))*0.993^age if gender=="Female" & race!=("Black or African American")
-	replace eGFR_recent=141*1.159*(mostrecentserumcreatinine/0.9)^(cond(mostrecentserumcreatinine<=0.9,-0.411, -1.209))*0.993^age if gender=="Male" & race==("Black or African American")
-	replace eGFR_recent=141*1.018*1.159*(mostrecentserumcreatinine/0.7)^(cond(mostrecentserumcreatinine<=0.7,-0.329, -1.209))*0.993^age if gender=="Female" & race==("Black or African American")
-	label var eGFR_recent "eGFR (mL/min/1.73m2) by CKD-EPI at most recent SCr"
-	
-	gen time_eGFR_recent = timingofserumcreatininerelativet
-	
-
-*-------------------------------------------------------------------------------
-* END CALCULATING CKD-EPI eGFR
-*------------------------------------------------------------------------------- 
-
-
-*-------------------------------------------------------------------------------
-* START CORRECTIONS OF ADDITIONAL NUMERICAL VARS
-*-------------------------------------------------------------------------------
-
-
-// added Nadir Serum Alb (whatwasthelowestvaluenadirofseru)- May 16, 2021
-foreach var of varlist serumalbuminpriortoinfection ///
-			serumalbuminduringcovidinfection ///
-			whatwasthelowestvaluenadirofseru ///
-			serumalbuminaftercovidinfection ///
-			serumalbuminfromdifferent2ndtime ///
-			serumalbuminvalue3rdsetoflabs ///
-			mostrecentserumalbuminfromsameda  {
-				replace  `var' =  `var' / 10 if  `var' >= 7 & !missing(`var')
-				 }
-
-
-gen RRT_DURATION = durationofrrt
-label var RRT_DURATION "Number of days on RRT during COVID-19 infection"
-
-gen byte RRT_AT_DISCHARGE = (isthepatientstillrequiringrenalr == "Yes")
-// check if reasonable (May 16, 2021)
-replace RRT_AT_DISCHARGE = . if RRT_YESNO == 0
-
-gen TIME_TO_DEATH = ifdeathdayssincediagnosis
-label var TIME_TO_DEATH "Number of days from admission to death"
-gen LOS = ifhospitalizedlengthofhospitalst
-label var LOS "Length of Stay (days)"
-
-*-------------------------------------------------------------------------------
-* END CORRECTIONS OF ADDITIONAL NUMERICAL VARS
-*-------------------------------------------------------------------------------
-
-
-* preliminary saving of wide dataset
-cap save all_vars_iroc_gn_creat_wide, replace
-
-
-
-*-------------------------------------------------------------------------------
-* START CREATING LONGITUDINAL DATASET
-*-------------------------------------------------------------------------------
-keep recordid doesthepatienthaveglomerulardise ///
-	age gender race ethnicity ///
-	estimatedgfrpriortocovidinfectio estimatedgfraftercovidinfection ///
-	serumcreatininepriortocovidinfec amountoftimeelapsedfromserumcrea ///
-	hiddenserumcreatininenormalizedt serumcreatinineaftercovidinfecti ///
-	timeelapsedfromcoviddiagnosistof hiddennormalizedserumcreatininet ///
-	whenwasthisserumcreatininelastc dateofserumcreatininelabafterco ///
-	dateofcoviddiagnosi  whenwasthisserumcreatininelastc ///
-	whenwasthelasttimeyoucheckedrel dateofinitialsetoflabsafterdiag ///
-	dateoffollowupclosetohospitaldi dateofserumcreatininelabafterco ///
-	serumcreatinineonadmissionifhosp peakserumcreatinineduringcovidin /// 
-	timebetweencoviddiagnosisandpeak  numberofdaystopeakserumcreatinin ///
-	mostrecentserumcreatinine timingofserumcreatininerelativet ///
-	serumcreatininefromadifferent2nd serumcreatininevalue3rdsetoflabs ///
-	serumalbuminpriortoinfection serumalbuminduringcovidinfection ///
-	serumalbuminaftercovidinfection mostrecentserumalbuminfromsameda ///
-	serumalbuminfromdifferent2ndtime serumalbuminvalue3rdsetoflabs ///
-	eGFR_* age GENDER RACE ETHNICITY NON_WHITE GNDISEASE PRE_EX_GN GLOM_DIS_DIAG DURATION_GN ///
-	HEMAT_PRE HEMAT_ADM HEMAT_POST ///
-	TRANSPLANT HYPERT DIABETES OBESITY CVD ASTHMA LIVER_DIS CANCER HIV ///
-	SLE RA SMOKER ACEI ///
-	IgAN_HSP VASCULITIS FSGS_MCD MN GN_SLE EITHER_VASC_SLE ///
-	FEVER COUGH DYSPNEA FATIGUE MYALGIA GI_SYMPT ANOREXIA ///
-	CHILLS NASALCONG SORETHROAT ANOSMIA NEUR_SYMPT ///
-	HOSPITALIZED  DEATH
-cap save _iroc_gn_creat_wide, replace 
-restore
-
-
-preserve
-use all_vars_iroc_gn_creat_wide, clear
-rename eGFR_pre	g1
-rename serumcreatininepriortocovidinfec cr1
-rename time_eGFR_pre	t1
-
-rename eGFR_adm	g2
-rename serumcreatinineonadmissionifhosp cr2
-rename time_eGFR_adm	t2
-
-rename eGFR_peak	g3
-rename peakserumcreatinineduringcovidin cr3
-rename time_eGFR_peak	t3
-
-rename eGFR_post	g4
-rename serumcreatinineaftercovidinfecti cr4
-rename time_eGFR_post	t4
-
-rename eGFR_2ndfup	g5
-rename serumcreatininefromadifferent2nd cr5
-rename time_eGFR_2ndfup	t5
-
-rename eGFR_3rdfup	g6
-rename serumcreatininevalue3rdsetoflabs cr6
-rename time_eGFR_3rdfup	t6
-
-rename eGFR_recent	g7
-rename mostrecentserumcreatinine cr7
-rename time_eGFR_recent	t7
-
-
-
-rename serumalbuminpriortoinfection alb_1
-rename serumalbuminduringcovidinfection alb_2 
-rename whatwasthelowestvaluenadirofseru alb_3
-rename serumalbuminaftercovidinfection alb_4
-rename serumalbuminfromdifferent2ndtime alb_5
-rename serumalbuminvalue3rdsetoflabs alb_6
-rename mostrecentserumalbuminfromsameda alb_7
-
-
-rename proteinuriaquantifiedpriortocovi  uprot_1
-rename peakproteinuriaquantifiedduringc  uprot_2
-rename proteinuriaquantifiedaftercovidi  uprot_4 
-
-
-order recordid g* cr* alb_* uprot_* t*  
-keep recordid g* cr* alb_* uprot_* t* GNDISEASE DEATH HOSPITALIZED AKI* ACTIVE_GN RRT age GENDER RACE ETHNICITY NON_WHITE GLOM_DIS_DIAG DURATION_GN /// 
-	HEMAT_PRE HYPERT DIABETES OBESITY CVD COPD ASTHMA LIVER_DIS ///
-	CANCER HIV RA SLE SMOKER ACEI ///
-	IgAN_HSP VASCULITIS FSGS_MCD MN GN_SLE EITHER_VASC_SLE ///
-	FEVER COUGH DYSPNEA FATIGUE MYALGIA ///
-	GI_SYMPT ANOREXIA CHILLS NASALCONG SORETHROAT ANOSMIA  NEUR_SYMPT ///
-	wbc lymphocytecountabsolute absoluteneutrophilcount hemoglobin ///
-	platelet ferritin creactiveprotein ddimer  ///
-	followuptimepointsincecovid19dia ///
-	MYCOPHENOLATE RITUXIMAB CNI AZATHIOPRINE STEROIDS
-reshape long g cr alb_ uprot_ t, i(recordid)
-rename _j TIME
-rename g eGFR
-sort recordid TIME
-cap save long_with_time, replace
-
-*--------------------------------------------------------------------------------
-* START Major addition June 21, 2021: add missing time points and drop duplicates
-*--------------------------------------------------------------------------------
-clear
-import excel "C:\Users\Pc\Box\Waldman Projects\missing_or_duplicated_timepoints_PC.xls", sheet("Sheet1") firstrow
-drop PRECOVID
-sort recordid TIME
-cap save missing_or_duplicated_timepoints_PC, replace
-merge 1:1 recordid TIME using long_with_time
-replace t = day if missing(t) & !missing(day)
-drop day
-
-
-bysort recordid (t): gen     base_eGFR =  eGFR[1]
-bysort recordid (t): replace base_eGFR = eGFR[_n-1] if missing(eGFR)
-
-bysort recordid (t): gen     base_uprot_ =  uprot_[1]
-bysort recordid (t): replace base_uprot_ = uprot_[_n-1] if missing(uprot_)
-
-bysort recordid (t): gen     base_alb_ =  alb_[1]
-bysort recordid (t): replace base_alb_ = alb_[_n-1] if missing(alb_)
-
-
-label define TIME 1 "PRE-COVID" 2 "ADMISSION" 3 "PEAK" 4 "AFTER" 5 "2nd F-up" 6 "3rd F-up" 7 "MOST RECENT"
-label values TIME TIME
-gen month =  t / 30.4375
-sort recordid month
-
-// Major Change June 21, 2021
-cap drop dup
-duplicates tag recordid month eGFR if (!missing(eGFR) & !missing(month)), gen(dup)
-sort recordid TIME
-list recordid TIME month eGFR if (dup!=0 &(!missing(eGFR) & !missing(month))) , sepby(recordid) noobs nolab
-duplicates drop recordid month eGFR if (!missing(eGFR) & !missing(month)), force
-
-* preliminary saving of longitudinal dataset
-cap save long_with_time, replace
-restore
-
-*--------------------------------------------------------------------------------
-* END Major addition June 21, 2021: add missing time points and drop duplicates
-*-------------------------------------------------------------------------------- 
-
-
-*-------------------------------------------------------------------------------
-* END CREATING LONGITUDINAL DATASET
-*-------------------------------------------------------------------------------
-
-*-------------------------------------------------------------------------------
-*  start checking deaths (after allignment issues) 
-*-------------------------------------------------------------------------------
-cd "C:\Users\Pc\Box\Waldman Projects"
-use all_vars_iroc_gn_creat_wide, clear
-foreach num of numlist 8 9 12 19 20 28 34 42 169 171 176 179 181 206 ///
-	50 65 75 85 98 102 111 128 195 235  {
-        di in ye "-----------> recordid: `num'"
-		list DEATH_YESNO if recordid ==  `num', noobs ab(12)
-		 }
-		
-*-------------------------------------------------------------------------------
-*  end checking deaths (after allignment issues) 
-*-------------------------------------------------------------------------------
-
-*-------------------------------------------------------------------------------
-* Start additional changes on the long. dataset (includes drop duplicates)
-*-------------------------------------------------------------------------------
-use long_with_time, clear
-drop if GNDISEASE == 1 & HOSPITALIZED ==1
-gen GROUP = .
-replace GROUP = 1 if GNDISEASE == 1
-replace GROUP = 2 if GNDISEASE == 2 & HOSPITALIZED == 2
-replace GROUP = 3 if GNDISEASE == 2 & HOSPITALIZED == 1
-label define GROUP 1 "Ctrl - Hospitalized" 2 "GN - Hospitalized" 3 "GN - Outpatients"
-label values GROUP GROUP
-*-------------------------------------------------------------------------------
-* End additional changes on the long. dataset (includes drop duplicates)
-*-------------------------------------------------------------------------------
-**# SAVE LONGITUDINAL DATASET
-save long_with_time, replace
-
-
-* check duplicates in an external file 
-use long_with_time, clear
-sort recordid TIME
-cap drop dup
-duplicates tag recordid month, gen(dup)
-preserve 
-drop if missing(eGFR)
-keep if dup != 0
-rename month day
-drop dup
-export excel recordid TIME using "C:\Users\Pc\Box\Waldman Projects\missing_or_duplicated_month.xls", firstrow(variables) nolabel replace
-restore
-
-
-
-
-*-------------------------------------------------------------------------------
-* Start additional changes on the wide  dataset 
-*-------------------------------------------------------------------------------
-**# second preliminary saving of the wide dataset before additional changes
-use all_vars_iroc_gn_creat_wide, clear
-drop if GNDISEASE == 1 & HOSPITALIZED ==1
-gen GROUP = .
-replace GROUP = 1 if GNDISEASE == 1
-replace GROUP = 2 if GNDISEASE == 2 & HOSPITALIZED == 2
-replace GROUP = 3 if GNDISEASE == 2 & HOSPITALIZED == 1
-label define GROUP 1 "Ctrl - Hospitalized" 2 "GN - Hospitalized" 3 "GN - Outpatients"
-label values GROUP GROUP
-*-------------------------------------------------------------------------------
-* End additional changes on the wide  dataset
-*-------------------------------------------------------------------------------	 
-**# SAVE WIDE SET
-save all_vars_iroc_gn_creat_wide, replace
-
-
-
-// Major changed June 21, 2021
-// still to remove the following duplicates in the wide file for consistency 
-// with the long file (in which the duplicates were remoned on June 21, 2021)
-/*
-
-  +---------------------------------------+
-  | recordid   TIME      month       eGFR |
-  |---------------------------------------|
-  |      112      2          0   105.4586 |
-  |      112      7          0   105.4586 |
-  |---------------------------------------|
-  |      143      2          0   10.87033 |
-  |      143      3          0   10.87033 |
-  |      143      4   .9856263   17.03693 |
-  |      143      6   .9856263   17.03693 |
-  |---------------------------------------|
-  |      160      3   .6570842   7.848947 |
-  |      160      4   .6570842   7.848947 |
-  |---------------------------------------|
-  |      173      2          0   28.29119 |
-  |      173      3          0   28.29119 |
-  |---------------------------------------|
-  |      175      4   1.051335   121.7706 |
-  |      175      7   1.051335   121.7706 |
-  |---------------------------------------|
-  |      176      3     .62423   24.40716 |
-  |      176      7     .62423   24.40716 |
-  |---------------------------------------|
-  |      178      2          0   57.66981 |
-  |      178      3          0   57.66981 |
-  |---------------------------------------|
-  |      179      3   2.529774   92.85821 |
-  |      179      4   2.529774   92.85821 |
-  |---------------------------------------|
-  |      181      3   .3285421   4.840813 |
-  |      181      7   .3285421   4.840813 |
-  |---------------------------------------|
-  |      184      4   4.829569   94.46082 |
-  |      184      7   4.829569   94.46082 |
-  |---------------------------------------|
-  |      188      4   4.829569   81.64633 |
-  |      188      5   4.829569   81.64633 |
-  |---------------------------------------|
-  |      189      4   3.449692   95.05386 |
-  |      189      7   3.449692   95.05386 |
-  |---------------------------------------|
-  |      190      2          0     67.414 |
-  |      190      3          0     67.414 |
-  |---------------------------------------|
-  |      198      2          0   34.44392 |
-  |      198      3          0   34.44392 |
-  |---------------------------------------|
-  |      199      2          0   42.82951 |
-  |      199      3          0   42.82951 |
-  |---------------------------------------|
-  |      200      4   1.379877    74.9191 |
-  |      200      5   1.379877    74.9191 |
-  |---------------------------------------|
-  |      202      4   1.445585   78.35364 |
-  |      202      5   1.445585   78.35364 |
-  |---------------------------------------|
-  |      209      4   3.383984   64.98684 |
-  |      209      7   3.383984   64.98684 |
-  |---------------------------------------|
-  |      212      2          0   86.75809 |
-  |      212      3          0   86.75809 |
-  |      212      4   1.215606    109.267 |
-  |      212      5   1.215606    109.267 |
-  |---------------------------------------|
-  |      223      4   .6899384   93.35253 |
-  |      223      7   .6899384   93.35253 |
-  |---------------------------------------|
-  |      230      2          0   43.09606 |
-  |      230      3          0   43.09606 |
-  |---------------------------------------|
-  |      232      4   1.905544   120.9182 |
-  |      232      7   1.905544   120.9182 |
-  |---------------------------------------|
-  |      233      3   1.018481   31.77046 |
-  |      233      4   1.018481   31.77046 |
-  |---------------------------------------|
-  |      236      3   1.117043   52.69367 |
-  |      236      4   1.117043   52.69367 |
-  |---------------------------------------|
-  |      245      2          0   35.54935 |
-  |      245      3          0   35.54935 |
-  |---------------------------------------|
-  |      246      3   .1314168   23.87157 |
-  |      246      4   .1314168   23.87157 |
-  +---------------------------------------+
-*/
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-**#                END PREPARING DATASET ///////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
 
 ////////////////////////////////////////////////////////////////////////////////
 **#  START STUDY POPULATION
 ////////////////////////////////////////////////////////////////////////////////
 **# USE WIDE DATSET
-cd "C:\Users\Pc\Box\Waldman Projects"
+
 use all_vars_iroc_gn_creat_wide, clear
 di _newline(3) in ye "---> as of `c(current_date)'  we are using the following number of pts"
 tab GNDISEASE
@@ -1203,7 +19,7 @@ tab GNDISEASE HOSPITALIZED if _nomiss_current_analyses == 0
 **# Start visualization of data available for longitudinal analyses
 *-------------------------------------------------------------------------------
 **# USE LONG DATASET
-cd "C:\Users\Pc\Box\Waldman Projects"
+
 use long_with_time, clear
 
 iis recordid
@@ -1271,7 +87,7 @@ bysort GROUP: xtsum month if TIME == 1
 **# //////   START TABLE BASELINE CHARACTERISTIC (3 GROUPS)
 ////////////////////////////////////////////////////////////////////////////////
 
-cd "C:\Users\Pc\Box\Waldman Projects"
+
 use all_vars_iroc_gn_creat_wide, clear
 
 
@@ -1493,7 +309,7 @@ foreach var of varlist GENDER RACE ETHNICITY HYPERT DIABETES OBESITY CVD COPD AS
 **# //////   START TABLE BASELINE IS AND PRIMARY RENAL DISEASE AND DURATION GN
 ////////////////////////////////////////////////////////////////////////////////
 
-cd "C:\Users\Pc\Box\Waldman Projects"
+
 use all_vars_iroc_gn_creat_wide, clear
 collect clear
 preserve
@@ -1648,7 +464,7 @@ restore
 ////////////////////////////////////////////////////////////////////////////////
 
 
-cd "C:\Users\Pc\Box\Waldman Projects"
+
 use all_vars_iroc_gn_creat_wide, clear
 
 
@@ -1809,7 +625,7 @@ tabstat proteinuriaquantifiedpriortocov if GNDISEASE, by(HOSPITALIZED) stat(n me
 **# START TABLE 3 (main) Effect of GN on clinical outcomes AKI RRT Death
 ////////////////////////////////////////////////////////////////////////////////
 
-cd "C:\Users\Pc\Box\Waldman Projects"
+
 use all_vars_iroc_gn_creat_wide, clear
 collect clear
 collect style clear
@@ -1912,7 +728,7 @@ collect export Table_All_ORs_CI_p_3models.docx, replace
 **# START FIGURE 1 PROBABILITY OF AKI GIVEN PRIOR eGFR
 ////////////////////////////////////////////////////////////////////////////////
 
-cd "C:\Users\Pc\Box\Waldman Projects"
+
 use all_vars_iroc_gn_creat_wide, clear
 
 logistic AKI_YESNO age GENDER NON_WHITE ACEI ///
@@ -1959,7 +775,7 @@ marginsplot, xdimension(eGFR_pre) ///
 **#  START Effect (main) of GN on kidney function recovery (categorical)
 ////////////////////////////////////////////////////////////////////////////////
 
-cd "C:\Users\Pc\Box\Waldman Projects"
+
 use long_with_time, clear
 
 tab TIME
@@ -2090,7 +906,7 @@ collect export recovery_base_model_ORs.docx, replace
 *-------------------------------------------------------------------------------
 **# START GOF OF THE MIXED LONGITUDINAL MODEL
 *-------------------------------------------------------------------------------
-cd "C:\Users\Pc\Box\Waldman Projects"
+
 use long_with_time, clear
 cap drop _no_allgfrmiss
 qui mixed eGFR GNDISEASE##(c.month)##AKI_YESNO##c.base_eGFR  ///
@@ -2222,7 +1038,7 @@ restore
 *-------------------------------------------------------------------------------
 **# START FIGURE 2 AND ASSOCIATED P VALUES
 *-------------------------------------------------------------------------------
- cd "C:\Users\Pc\Box\Waldman Projects"
+
  use long_with_time, clear
 * Adjusted Hospitalized patients not developing AKI
 mixed eGFR GNDISEASE##(c.month)##AKI_YESNO##c.base_eGFR  ///
@@ -2275,7 +1091,7 @@ marginsplot, xdimension(month) ///
 *-------------------------------------------------------------------------------
 **# Start FIGURE 2: cross-sectional 6-mo evaluation based on the fitted model 
 *-------------------------------------------------------------------------------
-  cd "C:\Users\Pc\Box\Waldman Projects" 
+
    use long_with_time, clear
       
 mixed eGFR GNDISEASE##(c.month)##AKI_YESNO##c.base_eGFR  ///
@@ -2323,7 +1139,7 @@ if (HOSPITALIZED == 2)  ///
 **# Start Table 5 pairwise testing of beta coefficent eGFR pre vs eGFR post at 6 months
 *-----------------------------------------------------------------------------
   
-  cd "C:\Users\Pc\Box\Waldman Projects"
+
   use long_with_time, clear 
   summ month if month > 0, detail
  
@@ -2417,7 +1233,7 @@ if (HOSPITALIZED == 2)  ///
 
 
 
-  cd "C:\Users\Pc\Box\Waldman Projects"
+
   use long_with_time, clear 
  
 	
@@ -2544,7 +1360,7 @@ collect export _basedet_long_average_eGFR.html, replace
 ////////////////////////////////////////////////////////////////////////////////
 
 
-cd "C:\Users\Pc\Box\Waldman Projects"
+
 use all_vars_iroc_gn_creat_wide, clear
 collect clear
 collect style clear
@@ -2684,7 +1500,7 @@ collect export Table_All_Det_ORs_CI_p_3models.docx, replace
 ////////////////////////////////////////////////////////////////////////////////
 
 
-cd "C:\Users\Pc\Box\Waldman Projects"
+
 use long_with_time, clear
 
 preserve
@@ -2973,7 +1789,7 @@ restore
 **#  START Effect (additional) of GN on kidney function recovery (categorical)
 ///////////////////////////////////////////////////////////////////////////////
 
-cd "C:\Users\Pc\Box\Waldman Projects"
+
 use long_with_time, clear
 
 drop _merge
@@ -3102,7 +1918,6 @@ collect export recovery_crude_adj_ORs.docx, replace
 **# Start Analyis of each Additional characteristic on post-COVID GFR (GN pts)
 ///////////////////////////////////////////////////////////////////////////////
 
-  cd "C:\Users\Pc\Box\Waldman Projects"
   use long_with_time, clear 
  
 	
@@ -3213,6 +2028,3 @@ collect export _det_long_average_eGFR.docx, replace
 **# End Analyis of each Additional characteristic on post-COVID GFR (GN pts)
 ///////////////////////////////////////////////////////////////////////////////	
  
-log close
-cap translate "C:\Users\Pc\Box\Waldman Projects\analysis iROC-GN `c(current_date)'.smcl" "C:\Users\Pc\Box\Waldman Projects\analysis iROC-GN `c(current_date)'.pdf", replace
-exit
