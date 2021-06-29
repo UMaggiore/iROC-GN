@@ -3,7 +3,7 @@
 **#  START STUDY POPULATION
 ////////////////////////////////////////////////////////////////////////////////
 **# USE WIDE DATSET
-
+version 17.0
 use all_vars_iroc_gn_creat_wide, clear
 di _newline(3) in ye "---> as of `c(current_date)'  we are using the following number of pts"
 tab GNDISEASE
@@ -19,7 +19,7 @@ tab GNDISEASE HOSPITALIZED if _nomiss_current_analyses == 0
 **# Start visualization of data available for longitudinal analyses
 *-------------------------------------------------------------------------------
 **# USE LONG DATASET
-
+version 17.0
 use long_with_time, clear
 
 iis recordid
@@ -87,7 +87,7 @@ bysort GROUP: xtsum month if TIME == 1
 **# //////   START TABLE BASELINE CHARACTERISTIC (3 GROUPS)
 ////////////////////////////////////////////////////////////////////////////////
 
-
+version 17.0
 use all_vars_iroc_gn_creat_wide, clear
 
 
@@ -309,7 +309,7 @@ foreach var of varlist GENDER RACE ETHNICITY HYPERT DIABETES OBESITY CVD COPD AS
 **# //////   START TABLE BASELINE IS AND PRIMARY RENAL DISEASE AND DURATION GN
 ////////////////////////////////////////////////////////////////////////////////
 
-
+version 17.0
 use all_vars_iroc_gn_creat_wide, clear
 collect clear
 preserve
@@ -464,7 +464,7 @@ restore
 ////////////////////////////////////////////////////////////////////////////////
 
 
-
+version 17.0
 use all_vars_iroc_gn_creat_wide, clear
 
 
@@ -625,7 +625,7 @@ tabstat proteinuriaquantifiedpriortocov if GNDISEASE, by(HOSPITALIZED) stat(n me
 **# START TABLE 3 (main) Effect of GN on clinical outcomes AKI RRT Death
 ////////////////////////////////////////////////////////////////////////////////
 
-
+version 17.0
 use all_vars_iroc_gn_creat_wide, clear
 collect clear
 collect style clear
@@ -728,7 +728,7 @@ collect export Table_All_ORs_CI_p_3models.docx, replace
 **# START FIGURE 1 PROBABILITY OF AKI GIVEN PRIOR eGFR
 ////////////////////////////////////////////////////////////////////////////////
 
-
+version 17.0
 use all_vars_iroc_gn_creat_wide, clear
 
 logistic AKI_YESNO age GENDER NON_WHITE ACEI ///
@@ -775,7 +775,7 @@ marginsplot, xdimension(eGFR_pre) ///
 **#  START Effect (main) of GN on kidney function recovery (categorical)
 ////////////////////////////////////////////////////////////////////////////////
 
-
+version 17.0
 use long_with_time, clear
 
 tab TIME
@@ -906,7 +906,7 @@ collect export recovery_base_model_ORs.docx, replace
 *-------------------------------------------------------------------------------
 **# START GOF OF THE MIXED LONGITUDINAL MODEL
 *-------------------------------------------------------------------------------
-
+version 17.0
 use long_with_time, clear
 cap drop _no_allgfrmiss
 qui mixed eGFR GNDISEASE##(c.month)##AKI_YESNO##c.base_eGFR  ///
@@ -1038,7 +1038,7 @@ restore
 *-------------------------------------------------------------------------------
 **# START FIGURE 2 AND ASSOCIATED P VALUES
 *-------------------------------------------------------------------------------
-
+version 17.0
  use long_with_time, clear
 * Adjusted Hospitalized patients not developing AKI
 mixed eGFR GNDISEASE##(c.month)##AKI_YESNO##c.base_eGFR  ///
@@ -1091,7 +1091,7 @@ marginsplot, xdimension(month) ///
 *-------------------------------------------------------------------------------
 **# Start FIGURE 2: cross-sectional 6-mo evaluation based on the fitted model 
 *-------------------------------------------------------------------------------
-
+version 17.0
    use long_with_time, clear
       
 mixed eGFR GNDISEASE##(c.month)##AKI_YESNO##c.base_eGFR  ///
@@ -1102,6 +1102,8 @@ if (HOSPITALIZED == 2)  ///
  margins, at(base_eGFR = (30(10)90)  AKI_YESNO = (0 1) GNDISEASE = (1 2) month = 6)  ///
  saving(margins_6meGFR_adjusted, replace)
  preserve
+ 
+ version 17.0
  use margins_6meGFR_adjusted,clear
 
  sort _at1 _margin _at4
@@ -1139,7 +1141,7 @@ if (HOSPITALIZED == 2)  ///
 **# Start Table 5 pairwise testing of beta coefficent eGFR pre vs eGFR post at 6 months
 *-----------------------------------------------------------------------------
   
-
+version 17.0
   use long_with_time, clear 
   summ month if month > 0, detail
  
@@ -1233,7 +1235,7 @@ if (HOSPITALIZED == 2)  ///
 
 
 
-
+version 17.0
   use long_with_time, clear 
  
 	
@@ -1360,7 +1362,7 @@ collect export _basedet_long_average_eGFR.html, replace
 ////////////////////////////////////////////////////////////////////////////////
 
 
-
+version 17.0
 use all_vars_iroc_gn_creat_wide, clear
 collect clear
 collect style clear
@@ -1500,7 +1502,7 @@ collect export Table_All_Det_ORs_CI_p_3models.docx, replace
 ////////////////////////////////////////////////////////////////////////////////
 
 
-
+version 17.0
 use long_with_time, clear
 
 preserve
@@ -1589,7 +1591,7 @@ collect style cell var[eGFR cr alb_ uprot_]#result[column3], nformat(%3.1f)
 collect style cell var[month]#result[column3], nformat(%3.1f)
 end
 
-
+version 17.0
 use _long_with_time_at_least_1post, clear
 _widetable
 collect export _multiple_wide_var_pval.txt, replace
@@ -1633,6 +1635,7 @@ end
 
 
 preserve
+version 17.0
 use _long_with_time_at_least_1post, clear
 _widetable
 _stattest
@@ -1645,6 +1648,7 @@ restore
 
 
 preserve 
+version 17.0
 use _long_with_time_at_least_2pre_1post, clear
 _widetable
 _stattest
@@ -1759,6 +1763,7 @@ end
 
 
 preserve
+version 17.0
 use _long_with_time_at_least_1post, clear
 _nouprot_widetable
 _nouprot_stattest
@@ -1770,6 +1775,7 @@ collect export _twide_no_uprot_at_least_1post.txt, replace
 restore
 
 preserve 
+version 17.0
 use _long_with_time_at_least_2pre_1post, clear
 _nouprot_widetable
 _nouprot_stattest
@@ -1789,7 +1795,7 @@ restore
 **#  START Effect (additional) of GN on kidney function recovery (categorical)
 ///////////////////////////////////////////////////////////////////////////////
 
-
+version 17.0
 use long_with_time, clear
 
 drop _merge
@@ -1917,7 +1923,7 @@ collect export recovery_crude_adj_ORs.docx, replace
 ///////////////////////////////////////////////////////////////////////////////
 **# Start Analyis of each Additional characteristic on post-COVID GFR (GN pts)
 ///////////////////////////////////////////////////////////////////////////////
-
+version 17.0
   use long_with_time, clear 
  
 	
