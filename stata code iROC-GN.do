@@ -4,6 +4,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 **# USE WIDE DATSET
 version 17.0
+
 use all_vars_iroc_gn_creat_wide, clear
 di _newline(3) in ye "---> as of `c(current_date)'  we are using the following number of pts"
 tab GNDISEASE
@@ -20,6 +21,7 @@ tab GNDISEASE HOSPITALIZED if _nomiss_current_analyses == 0
 *-------------------------------------------------------------------------------
 **# USE LONG DATASET
 version 17.0
+
 use long_with_time, clear
 
 iis recordid
@@ -88,6 +90,7 @@ bysort GROUP: xtsum month if TIME == 1
 ////////////////////////////////////////////////////////////////////////////////
 
 version 17.0
+
 use all_vars_iroc_gn_creat_wide, clear
 
 
@@ -310,6 +313,7 @@ foreach var of varlist GENDER RACE ETHNICITY HYPERT DIABETES OBESITY CVD COPD AS
 ////////////////////////////////////////////////////////////////////////////////
 
 version 17.0
+
 use all_vars_iroc_gn_creat_wide, clear
 collect clear
 preserve
@@ -318,11 +322,11 @@ qui: table (var) (HOSPITALIZED) , ///
 		stat(fvfrequency IgAN_HSP VASCULITIS FSGS_MCD MN GN_SLE EITHER_VASC_SLE ///
 		MPGN PIGN TMA AA_FG ///
 		IMMUNOSUPPRESSION STEROIDS MYCOPHENOLATE ///
-		AZATHIOPRINE RITUXIMAB ) ///
+		AZATHIOPRINE CNI RITUXIMAB ) ///
 		stat(fvpercent  IgAN_HSP VASCULITIS FSGS_MCD MN GN_SLE EITHER_VASC_SLE /// 
 		MPGN PIGN TMA AA_FG ///
 		IMMUNOSUPPRESSION STEROIDS MYCOPHENOLATE ///
-		AZATHIOPRINE RITUXIMAB) ///
+		AZATHIOPRINE CNI RITUXIMAB) ///
 		stat(fvfrequency DURATION_GN) ///
 		stat(fvpercent DURATION_GN) ///
 		nformat(%4.0f fvfrequency) ///
@@ -343,7 +347,7 @@ collect layout (var) (HOSPITALIZED[1 2]#result)
 foreach x in  IgAN_HSP VASCULITIS FSGS_MCD MN GN_SLE EITHER_VASC_SLE ///
 		MPGN PIGN TMA AA_FG ///
 		IMMUNOSUPPRESSION STEROIDS MYCOPHENOLATE ///
-		AZATHIOPRINE RITUXIMAB DURATION_GN ///
+		AZATHIOPRINE CNI RITUXIMAB DURATION_GN ///
   {
 	collect style cell result[fvpercent]#var[HOSPITALIZED `x'], sformat("%s%%")
 	 }
@@ -354,7 +358,7 @@ foreach x in  IgAN_HSP VASCULITIS FSGS_MCD MN GN_SLE EITHER_VASC_SLE ///
 foreach x in IgAN_HSP VASCULITIS FSGS_MCD MN GN_SLE EITHER_VASC_SLE ///
 		MPGN PIGN TMA AA_FG ///
 		IMMUNOSUPPRESSION STEROIDS MYCOPHENOLATE ///
-		AZATHIOPRINE RITUXIMAB {
+		AZATHIOPRINE CNI RITUXIMAB {
 	qui: collect r(p_exact), tag(var[`x']): tab HOSPITALIZED `x', exact
 	 }	
 	 
@@ -369,7 +373,7 @@ collect layout (var) (HOSPITALIZED[1 2]#result result[p p_exact])
 
 foreach x in   ///
 		IMMUNOSUPPRESSION STEROIDS MYCOPHENOLATE ///
-		AZATHIOPRINE RITUXIMAB DURATION_GN ///
+		AZATHIOPRINE CNI RITUXIMAB DURATION_GN ///
 			{
 	collect recode var `x' = 1.`x', fortags(result[p_exact])
 	 }
@@ -413,6 +417,7 @@ collect label levels var IMMUNOSUPPRESSION "Immunosuppression", modify
 collect label levels var STEROIDS "Steroids", modify  
 collect label levels var MYCOPHENOLATE "MMF", modify
 collect label levels var AZATHIOPRINE "AZA", modify 
+collect label levels var CNI "CNI", modify 
 collect label levels var RITUXIMAB "RTX", modify 
 collect label levels var DURATION_GN "Duration of GN disease", modify
 
@@ -465,6 +470,7 @@ restore
 
 
 version 17.0
+
 use all_vars_iroc_gn_creat_wide, clear
 
 
@@ -477,9 +483,9 @@ qui: table (var) (GNDISEASE) , ///
 		stat(mean RRT_DURATION) ///
 		stat(sd RRT_DURATION) ///
 		stat(fvfrequency RRT_AT_DISCHARGE) stat(fvpercent RRT_AT_DISCHARGE) ///		
-        stat(count  serumcreatinineonadmissionifhosp peakserumcreatinineduringcovidin serumalbuminduringcovidinfection whatwasthelowestvaluenadirofseru 	peakserumcreatinineduringcovidin) ///
-        stat(mean RRT_DURATION serumcreatinineonadmissionifhosp peakserumcreatinineduringcovidin serumalbuminduringcovidinfection whatwasthelowestvaluenadirofseru 	peakserumcreatinineduringcovidin ) ///
-        stat(sd RRT_DURATION serumcreatinineonadmissionifhosp peakserumcreatinineduringcovidin serumalbuminduringcovidinfection whatwasthelowestvaluenadirofseru peakproteinuriaquantifiedduringc ) ///
+        stat(count  serumcreatinineonadmissionifhosp peakserumcreatinineduringcovidin serumalbuminduringcovidinfection whatwasthelowestvaluenadirofseru peakproteinuriaquantifiedduringc) ///
+        stat(mean  serumcreatinineonadmissionifhosp  peakserumcreatinineduringcovidin serumalbuminduringcovidinfection whatwasthelowestvaluenadirofseru  peakproteinuriaquantifiedduringc) ///
+        stat(sd    serumcreatinineonadmissionifhosp  peakserumcreatinineduringcovidin serumalbuminduringcovidinfection whatwasthelowestvaluenadirofseru peakproteinuriaquantifiedduringc ) ///
 		stat(fvfrequency CARDIAC_COMPL MI ARRHYTHMIA GI CNS_MAIN PE DVT SUPERIMP_INFECTION) ///
 		stat(fvpercent CARDIAC_COMPL MI ARRHYTHMIA GI CNS_MAIN PE DVT SUPERIMP_INFECTION) ///
 		stat(count LOS) ///
@@ -622,16 +628,38 @@ tabstat proteinuriaquantifiedpriortocov if GNDISEASE, by(HOSPITALIZED) stat(n me
 ////////////////////////////////////////////////////////////////////////////////
 
 ////////////////////////////////////////////////////////////////////////////////
+**# START ESTIMATED DIFFERENCE IN LOS  HOSPITALZED GN vs CTRL
+////////////////////////////////////////////////////////////////////////////////
+version 17.0
+
+use all_vars_iroc_gn_creat_wide, clear
+regress LOS GNDISEASE if HOSPITALIZED == 2, vce(robust)
+
+////////////////////////////////////////////////////////////////////////////////
+**# END ESTIMATED DIFFERENCE IN LOS  HOSPITALZED GN vs CTRL
+////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////
 **# START TABLE 3 (main) Effect of GN on clinical outcomes AKI RRT Death
 ////////////////////////////////////////////////////////////////////////////////
 
 version 17.0
+
 use all_vars_iroc_gn_creat_wide, clear
+
+   
+
+
 collect clear
 collect style clear
 collect style use default
 
 keep if HOSPITALIZED == 2
+* incidence AKI RRT Death
+tab GNDISEASE AKI_YESNO, row 
+tab GNDISEASE RRT_YESNO, row
+tab GNDISEASE DEATH_YESNO, row 
+
 keep if !missing(eGFR_pre)
 tab GNDISEASE
 
@@ -729,6 +757,7 @@ collect export Table_All_ORs_CI_p_3models.docx, replace
 ////////////////////////////////////////////////////////////////////////////////
 
 version 17.0
+
 use all_vars_iroc_gn_creat_wide, clear
 
 logistic AKI_YESNO age GENDER NON_WHITE ACEI ///
@@ -754,7 +783,7 @@ marginsplot, xdimension(eGFR_pre) ///
  ylabel(0 "0.0" 0.1 "10" 0.2 "20" 0.3 "30" 0.4 "40" 0.5 "50" 0.6 "60" 0.7 "70" 0.8 "80" 0.9 "90" 1 "100", grid angle(horizontal)) ///
  xlabel(10(10)100, grid) ///
  ysc(titlegap(2)) ///
- xtitle("Pre-COVID eGFR (mL/min/1.73m{sup:2})") ///
+ xtitle("Pre-COVID-19 eGFR (mL/min/1.73m{sup:2})") ///
  xsc(titlegap(3)) ///
   aspectratio(1) ///
   plotopts(lcolor(navy%30)  lwidth(*1.2)  lpattern(solid)  msymbol(i)  clcolor(navy)) ///
@@ -762,6 +791,7 @@ marginsplot, xdimension(eGFR_pre) ///
   title(" ") ///
   scheme(s1mono)
   graph export aki_probability.png, replace
+  graph export aki_probability.pdf, replace
   
   * note("estimated only in GN-Hospitalized patients; OR per 15ml/min/1.73m2 eGFR:" `sor' "(95%CI: "`slb' " to "`sub'";P= " `spval'")", size(*0.7)) ///
   
@@ -776,6 +806,7 @@ marginsplot, xdimension(eGFR_pre) ///
 ////////////////////////////////////////////////////////////////////////////////
 
 version 17.0
+
 use long_with_time, clear
 
 tab TIME
@@ -798,8 +829,12 @@ foreach num of numlist 4 5 6 7  {
 gen RECOVERED = cond( (_recovered_4 == 1 | _recovered_5 == 1 | _recovered_6 == 1 | _recovered_7 == 1), 1, 0)
 replace RECOVERED = . if (_recovered_4 == . & _recovered_5 == . & _recovered_6 == . & _recovered_7 == .)
 
-tab GNDISEASE RECOVERED, row exact
-tab GNDISEASE RECOVERED if HOSPITALIZED == 2, row exact
+label define RECOVERED 0 "No" 1 "Yes"
+label values RECOVERED RECOVERED
+
+tab GNDISEASE RECOVERED, row 
+tab GNDISEASE RECOVERED if HOSPITALIZED == 2, row 
+tab GNDISEASE RECOVERED if GNDISEASE == 2, row 
 
 
 
@@ -907,6 +942,7 @@ collect export recovery_base_model_ORs.docx, replace
 **# START GOF OF THE MIXED LONGITUDINAL MODEL
 *-------------------------------------------------------------------------------
 version 17.0
+
 use long_with_time, clear
 cap drop _no_allgfrmiss
 qui mixed eGFR GNDISEASE##(c.month)##AKI_YESNO##c.base_eGFR  ///
@@ -978,7 +1014,7 @@ xtline eGFR,   ///
 	ytitle(eGFR (mL/min/1.73m{sup:2})) ///
 	ylabel(30 120, angle(horizontal) grid) ///
 	xlabel(-12(6)12) ///
-	xtitle("Month Since COVID Diagnosis") ///
+	xtitle("Month Since COVID-19 Diagnosis") ///
 	byopts(title("Data Used For Longitudinal Analyses", size(*0.7))  note("No of pts analyzed: `n_pts'; total eGFR measurements: `n_egfr' (average `st_avg' (`t_min' - `t_max') per pt)", size(*0.8))) ///
 	addplot(scatter eGFR month if GNDISEASE == 1 & DEATH == 1, msymbol(o) mcolor(navy)  || ///
 	        scatter eGFR month if GNDISEASE == 2 & DEATH == 1, msymbol(o) mcolor(maroon) || ///
@@ -995,7 +1031,7 @@ xtline eGFR,   ///
 	ytitle(eGFR (mL/min/1.73m{sup:2})) ///
 	ylabel(30 120, angle(horizontal) grid) ///
 	xlabel(-12(6)12) ///
-	xtitle("Month Since COVID Diagnosis") ///
+	xtitle("Month Since COVID-19 Diagnosis") ///
 	byopts(title("Data Used For Longitudinal Analyses", size(*0.7))  note("No of pts analyzed: `n_pts'; total eGFR measurements: `n_egfr' (average `st_avg' (`t_min' - `t_max') per pt)", size(*0.8))) ///
 	addplot(scatter eGFR month if GNDISEASE == 1 & RRT == 1, msymbol(o) mcolor(navy)  || ///
 	        scatter eGFR month if GNDISEASE == 2 & RRT == 1, msymbol(o) mcolor(maroon) || ///
@@ -1012,7 +1048,7 @@ xtline eGFR,   ///
 	ytitle(eGFR (mL/min/1.73m{sup:2})) ///
 	ylabel(30 120, angle(horizontal) grid) ///
 	xlabel(-12(6)12) ///
-	xtitle("Month Since COVID Diagnosis") ///
+	xtitle("Month Since COVID-19 Diagnosis") ///
 	byopts(title("Data Used For Longitudinal Analyses", size(*0.7))  note("No of pts analyzed: `n_pts'; total eGFR measurements: `n_egfr' (average `st_avg' (`t_min' - `t_max') per pt)", size(*0.8))) ///
 	addplot(scatter eGFR month if GNDISEASE == 1 & RRT == 1, msymbol(o) mcolor(navy)  || ///
 	        scatter eGFR month if GNDISEASE == 2 & RRT == 1, msymbol(o) mcolor(maroon) || ///
@@ -1039,6 +1075,7 @@ restore
 **# START FIGURE 2 AND ASSOCIATED P VALUES
 *-------------------------------------------------------------------------------
 version 17.0
+
  use long_with_time, clear
 * Adjusted Hospitalized patients not developing AKI
 mixed eGFR GNDISEASE##(c.month)##AKI_YESNO##c.base_eGFR  ///
@@ -1080,10 +1117,13 @@ marginsplot, xdimension(month) ///
   scheme(s1mono) saving(_mpl, replace)
   graph use _mpl1.gph
   graph export _mpl1.png, as(png) replace
+  graph export _mpl1.pdf, as(pdf) replace
   graph use _mpl2.gph
   graph export _mpl2.png, as(png) replace
+  graph export _mpl2.pdf, as(pdf) replace
   graph use _mpl3.gph
   graph export _mpl3.png, as(png) replace
+  graph export _mpl3.pdf, as(pdf) replace
  * End Supplementary Figure S1
 
 
@@ -1092,7 +1132,8 @@ marginsplot, xdimension(month) ///
 **# Start FIGURE 2: cross-sectional 6-mo evaluation based on the fitted model 
 *-------------------------------------------------------------------------------
 version 17.0
-   use long_with_time, clear
+
+use long_with_time, clear
       
 mixed eGFR GNDISEASE##(c.month)##AKI_YESNO##c.base_eGFR  ///
 c.age i.GENDER i.NON_WHITE i.ACEI  ///
@@ -1104,6 +1145,7 @@ if (HOSPITALIZED == 2)  ///
  preserve
  
  version 17.0
+
  use margins_6meGFR_adjusted,clear
 
  sort _at1 _margin _at4
@@ -1123,14 +1165,15 @@ if (HOSPITALIZED == 2)  ///
  rarea _ci_ub _ci_lb _at4 if _at1==2 & _at3==0,   color(navy%30) sort || ///
  line x x, lpattern(dash) lwidth(1.5) lcolor(black%30) || ///
  , by(_at1, note("Hospitalized patients, adjusted analysis") title("Pre-Existing Glomerular Disease")) ///
-  ytitle("6-month post-COVID eGFR (mL/min/1.73m{sup:2})") ///
+  ytitle("6-month post-COVID-19 eGFR (mL/min/1.73m{sup:2})") ///
  ylabel(10(10)120, grid angle(horizontal)) ///
  xlabel(30(10)90, grid) ///
- xtitle("Pre-COVID eGFR (mL/min/1.73m{sup:2})") ///
+ xtitle("Pre-COVID-19 eGFR (mL/min/1.73m{sup:2})") ///
  legend(order (3 "AKI = No" 1 "AKI = Yes")) ///
  aspectratio(1) ///
   scheme(s1mono)
    graph export gndisease_aki_gnprecovid-6_month_ident_line_interaction.png, replace
+   graph export gndisease_aki_gnprecovid-6_month_ident_line_interaction.pdf, replace
  restore
  
 *-------------------------------------------------------------------------------
@@ -1142,6 +1185,7 @@ if (HOSPITALIZED == 2)  ///
 *-----------------------------------------------------------------------------
   
 version 17.0
+
   use long_with_time, clear 
   summ month if month > 0, detail
  
@@ -1162,7 +1206,7 @@ version 17.0
 	* collect get r(table_vs), name(pre_vs_post_eGFR) tag(model[(comp)])
 	collect label list result , name(pre_vs_post_eGFR) all
 	collect layout (result[_r_b _r_ci _r_p]) (colname)
-	collect label levels result _r_b "Coeff. pre- vs 6months post-COVID eGFR", modify 
+	collect label levels result _r_b "Coeff. pre- vs 6months post-COVID-19 eGFR", modify 
 	collect label levels result at "Group", modify 
 	collect label values _at 1 "Ctrl" 2 "GN Disease", modify
 	collect style cell result[_r_b _r_se _r_ci], nformat(%8.2f)
@@ -1198,7 +1242,7 @@ version 17.0
 	* collect get r(table_vs), name(pre_vs_post_eGFR) tag(model[(comp)])
 	collect label list result , name(pre_vs_post_eGFR) all
 	collect layout (result[_r_b _r_ci _r_p]) (colname)
-	collect label levels result _r_b "Coeff. pre- vs 6months post-COVID eGFR", modify 
+	collect label levels result _r_b "Coeff. pre- vs 6months post-COVID-19 eGFR", modify 
 	collect label levels result at "Group", modify 
 	collect label values _at 1 "Ctrl AKI:no" 2 "GN AKI:no" 3 "Ctrl AKI:yes" 4 "GN AKI:yes", modify
 	collect style cell result[_r_b _r_se _r_ci], nformat(%8.2f)
@@ -1236,6 +1280,7 @@ version 17.0
 
 
 version 17.0
+
   use long_with_time, clear 
  
 	
@@ -1363,6 +1408,7 @@ collect export _basedet_long_average_eGFR.html, replace
 
 
 version 17.0
+
 use all_vars_iroc_gn_creat_wide, clear
 collect clear
 collect style clear
@@ -1403,7 +1449,7 @@ collect style clear
 cap collect drop Det_Outcome
 cap collect create Det_Outcome, replace
 foreach var of varlist SD_alb_1 SD_uprot_1  ///
-		AZATHIOPRINE MYCOPHENOLATE RITUXIMAB STEROIDS ///
+		AZATHIOPRINE MYCOPHENOLATE CNI RITUXIMAB STEROIDS ///
 		SLE_recoded IgAN_HSP VASCULITIS FSGS_MCD MN GN_SLE EITHER_VASC_SLE DURATION_GN  {
 collect _r_b _r_ci _r_p, name(Det_Outcome) tag(AKI["crude"]): ///
         qui logistic AKI_YESNO `var' HOSPITALIZED
@@ -1454,6 +1500,7 @@ collect recode colname SD_alb_1 = "Serum albumin, g/dL (per 1 SD unit decrease)"
 collect recode colname SD_uprot_1 = "Urinary Protein, g/day (per 1 SD unit increase)"
 collect recode colname AZATHIOPRINE = "Azathioprine"
 collect recode colname MYCOPHENOLATE = "Mycophenolate" 
+collect recode colname CNI = "Calcineurin Inhibitors"
 collect recode colname RITUXIMAB = "Rituximab"
 collect recode colname STEROIDS = "Steroids"
 collect recode colname DURATION_GN = "Duration of GN (trend across categories)"
@@ -1480,7 +1527,7 @@ collect stars _r_p 0.01 "***" 0.05 "**" 0.1 "*", attach(_r_b)
 
 // show variables but not the constant term
 collect layout ///
-(colname["Serum albumin, g/dL (per 1 SD unit decrease)" "Urinary Protein, g/day (per 1 SD unit increase)" "Azathioprine" "Mycophenolate" "Rituximab" "Steroids" "Duration of GN (trend across categories)" "SLE history" "SLE GN diagnosis" "Vasculitis" "SLE GN or Vasculitis" "IgA nephropathy" "FSGS or MCD" "Membranous nephropathy" ]#result) (AKI RRT Death)
+(colname["Serum albumin, g/dL (per 1 SD unit decrease)" "Urinary Protein, g/day (per 1 SD unit increase)" "Azathioprine" "Mycophenolate" "Calcineurin Inhibitors" "Rituximab" "Steroids" "Duration of GN (trend across categories)" "SLE history" "SLE GN diagnosis" "Vasculitis" "SLE GN or Vasculitis" "IgA nephropathy" "FSGS or MCD" "Membranous nephropathy" ]#result) (AKI RRT Death)
 
 // for repeating column headers, display them once and center them
 collect style column, dups(center)
@@ -1503,6 +1550,7 @@ collect export Table_All_Det_ORs_CI_p_3models.docx, replace
 
 
 version 17.0
+
 use long_with_time, clear
 
 preserve
@@ -1553,9 +1601,9 @@ collect label levels var eGFR "eGFR, ml/min/1.73m2", modify
 collect label levels var cr "Serum creatinine, mg/dl", modify
 collect label levels var alb_ "Serum albumin, g/dl", modify
 collect label levels var uprot_ "Urinary protein, g/day", modify
-collect label levels var month "Month since COVID diagnosis", modify
+collect label levels var month "Month since COVID-19 diagnosis", modify
 collect label dim TIME "Survey Time Points", modify
-collect label levels TIME 1 "Pre-COVID" 2 "At admission" 3 "During COVID" 4 "After COVID" 5 "Second F-Up" 6 "Third F-UP" 7 "Most Recent", modify
+collect label levels TIME 1 "Pre-COVID-19" 2 "At admission" 3 "During COVID-19" 4 "After COVID-19" 5 "Second F-Up" 6 "Third F-UP" 7 "Most Recent", modify
 // Change the label of HOSPITALIZED
 collect label dim HOSPITALIZED "Admission Status", modify
 // Change the label of values HOSPITALIZED
@@ -1592,6 +1640,7 @@ collect style cell var[month]#result[column3], nformat(%3.1f)
 end
 
 version 17.0
+
 use _long_with_time_at_least_1post, clear
 _widetable
 collect export _multiple_wide_var_pval.txt, replace
@@ -1616,7 +1665,7 @@ foreach name in eGFR cr alb_ uprot_ {
 		foreach status of numlist  1 2		 {
 		qui cap signrank `name'1 = `name'`num' if HOSPITALIZED  == `status'
 		local t: word `num' of `timepoints'
-		di _newline(3) in ye "----> Hospitalized = `: label (HOSPITALIZED) `status'';  Variable = `name' , `t' vs Pre-COVID: P value ="  %4.3f r(p)
+		di _newline(3) in ye "----> Hospitalized = `: label (HOSPITALIZED) `status'';  Variable = `name' , `t' vs Pre-COVID-19: P value ="  %4.3f r(p)
 		collect get column2=(r(p)), ///
 			tag(TIME[`num'] HOSPITALIZED[`status'] var[`name'1])
 			}
@@ -1636,6 +1685,7 @@ end
 
 preserve
 version 17.0
+
 use _long_with_time_at_least_1post, clear
 _widetable
 _stattest
@@ -1649,6 +1699,7 @@ restore
 
 preserve 
 version 17.0
+
 use _long_with_time_at_least_2pre_1post, clear
 _widetable
 _stattest
@@ -1688,9 +1739,9 @@ collect label list var, all
 collect label levels var eGFR "eGFR, ml/min/1.73m2", modify
 collect label levels var cr "Serum creatinine, mg/dl", modify
 collect label levels var alb_ "Serum albumin, g/dl", modify
-collect label levels var month "Month since COVID diagnosis", modify
+collect label levels var month "Month since COVID-19 diagnosis", modify
 collect label dim TIME "Survey Time Points", modify
-collect label levels TIME 1 "Pre-COVID" 2 "At admission" 3 "During COVID" 4 "After COVID" 5 "Second F-Up" 6 "Third F-UP" 7 "Most Recent", modify
+collect label levels TIME 1 "Pre-COVID-19" 2 "At admission" 3 "During COVID-19" 4 "After COVID-19" 5 "Second F-Up" 6 "Third F-UP" 7 "Most Recent", modify
 // Change the label of HOSPITALIZED
 collect label dim HOSPITALIZED "Admission Status", modify
 // Change the label of values HOSPITALIZED
@@ -1747,7 +1798,7 @@ foreach name in eGFR cr alb_  {
 		foreach status of numlist  1 2		 {
 		qui cap signrank `name'1 = `name'`num' if HOSPITALIZED  == `status'
 		local t: word `num' of `timepoints'
-		di _newline(3) in ye "----> Hospitalized = `: label (HOSPITALIZED) `status'';  Variable = `name' , `t' vs Pre-COVID: P value ="  %4.3f r(p)
+		di _newline(3) in ye "----> Hospitalized = `: label (HOSPITALIZED) `status'';  Variable = `name' , `t' vs Pre-COVID-19: P value ="  %4.3f r(p)
 		collect get column2=(r(p)), ///
 			tag(TIME[`num'] HOSPITALIZED[`status'] var[`name'1])
 			}
@@ -1764,6 +1815,7 @@ end
 
 preserve
 version 17.0
+
 use _long_with_time_at_least_1post, clear
 _nouprot_widetable
 _nouprot_stattest
@@ -1776,6 +1828,7 @@ restore
 
 preserve 
 version 17.0
+
 use _long_with_time_at_least_2pre_1post, clear
 _nouprot_widetable
 _nouprot_stattest
@@ -1792,10 +1845,45 @@ restore
 
 
 ////////////////////////////////////////////////////////////////////////////////
+**# START CRUDE TIME BY TIME COMPARISONS BETWEEN HOSPITALIZED GN e CTRL
+////////////////////////////////////////////////////////////////////////////////
+
+capture program drop _timebytimehospitalized
+program define _timebytimehospitalized
+version 17.0
+
+use long_with_time, clear
+
+drop _merge
+drop base_uprot_
+drop base_alb_
+drop dup
+
+label var eGFR "eGFR (ml/min/1.73m2)"
+label var cr "Serum creatinine (mg/dl)"
+label var alb_ "Serum albumin (g/dl)"
+label var uprot_ "Urinary protein (g/day)"
+foreach var of varlist eGFR cr alb_ uprot_ {
+foreach num of numlist 1 2 3 4 5 6 7  {
+	cap qui ranksum `var' if TIME == `num' & HOSPITALIZED ==2, by(GNDISEASE)
+	di _newline(3) in ye "----> VARIABLE = `: var label `var'', TIME = `: label (TIME) `num'': P value ="  %4.3f r(p)
+		}
+	 }
+end
+	 
+ _timebytimehospitalized
+	 
+////////////////////////////////////////////////////////////////////////////////
+**# START CRUDE TIME BY TIME COMPARISONS BETWEEN HOSPITALIZED GN e CTRL
+////////////////////////////////////////////////////////////////////////////////
+
+
+////////////////////////////////////////////////////////////////////////////////
 **#  START Effect (additional) of GN on kidney function recovery (categorical)
 ///////////////////////////////////////////////////////////////////////////////
 
 version 17.0
+
 use long_with_time, clear
 
 drop _merge
@@ -1850,7 +1938,7 @@ collect style use default
 cap collect drop Recovery
 cap collect create Recovery, replace
 foreach var of varlist SD_alb_1 SD_uprot_1  ///
-		AZATHIOPRINE MYCOPHENOLATE RITUXIMAB STEROIDS ///
+		AZATHIOPRINE MYCOPHENOLATE CNI RITUXIMAB STEROIDS ///
 		SLE_recoded IgAN_HSP VASCULITIS FSGS_MCD MN GN_SLE EITHER_VASC_SLE DURATION_GN  {
 	    collect _r_b _r_ci _r_p, name(Recovery) tag(model[Crude]): qui logistic RECOVERED  `var' if GNDISEASE == 2
 		collect _r_b _r_ci _r_p, name(Recovery) tag(model[Adjusted]): qui logistic RECOVERED SD_eGFR1 SD_age GENDER NON_WHITE ACEI HOSPITALIZED  `var' if GNDISEASE == 2
@@ -1885,7 +1973,8 @@ collect style showbase off
 collect recode colname SD_alb_1 = "Serum albumin, g/dL (per 1 SD unit decrease)"
 collect recode colname SD_uprot_1 = "Urinary Protein, g/day (per 1 SD unit increase)"
 collect recode colname AZATHIOPRINE = "Azathioprine"
-collect recode colname MYCOPHENOLATE = "Mycophenolate" 
+collect recode colname MYCOPHENOLATE = "Mycophenolate"
+collect recode colname CNI = "Calcineurin Inhibitors" 
 collect recode colname RITUXIMAB = "Rituximab"
 collect recode colname STEROIDS = "Steroids"
 collect recode colname DURATION_GN = "Duration of GN (trend across categories)"
@@ -1903,7 +1992,7 @@ collect stars _r_p 0.01 "***" 0.05 "**" 0.1 "*", attach(_r_b)
 
 // show variables but not the constant term
 collect layout ///
-(colname["Serum albumin, g/dL (per 1 SD unit decrease)" "Urinary Protein, g/day (per 1 SD unit increase)" "Azathioprine" "Mycophenolate" "Rituximab" "Steroids" "Duration of GN (trend across categories)" "SLE history" "SLE GN diagnosis" "Vasculitis" "SLE GN or Vasculitis" "IgA nephropathy" "FSGS or MCD" "Membranous nephropathy" ]#result)  (model)
+(colname["Serum albumin, g/dL (per 1 SD unit decrease)" "Urinary Protein, g/day (per 1 SD unit increase)" "Azathioprine" "Mycophenolate" "Calcineurin Inhibitors" "Rituximab" "Steroids" "Duration of GN (trend across categories)" "SLE history" "SLE GN diagnosis" "Vasculitis" "SLE GN or Vasculitis" "IgA nephropathy" "FSGS or MCD" "Membranous nephropathy" ]#result)  (model)
 
 // for repeating column headers, display them once and center them
 collect style column, dups(center)
@@ -1924,7 +2013,8 @@ collect export recovery_crude_adj_ORs.docx, replace
 **# Start Analyis of each Additional characteristic on post-COVID GFR (GN pts)
 ///////////////////////////////////////////////////////////////////////////////
 version 17.0
-  use long_with_time, clear 
+
+use long_with_time, clear 
  
 	
 
@@ -1961,7 +2051,7 @@ collect style use default
 cap collect drop Det_eGFR
 cap collect create Det_eGFR, replace
 foreach var of varlist  SD_base_alb_ SD_base_uprot_  ///
-		AZATHIOPRINE MYCOPHENOLATE RITUXIMAB STEROIDS ///
+		AZATHIOPRINE MYCOPHENOLATE CNI RITUXIMAB STEROIDS ///
 		SLE_recoded IgAN_HSP VASCULITIS FSGS_MCD MN GN_SLE EITHER_VASC_SLE DURATION_GN  {
 	    collect _r_b _r_ci _r_p, name(Det_eGFR) tag(model["Base Model"]): qui 	mixed eGFR `var' ///
 		c.month##AKI_YESNO##c.base_eGFR i.HOSPITALIZED ///
@@ -2002,7 +2092,8 @@ collect style showbase off
 collect recode colname SD_base_alb_ = "Serum albumin, g/dL (per 1 SD unit decrease)"
 collect recode colname SD_base_uprot_ = "Urinary Protein, g/day (per 1 SD unit increase)"
 collect recode colname AZATHIOPRINE = "Azathioprine"
-collect recode colname MYCOPHENOLATE = "Mycophenolate" 
+collect recode colname MYCOPHENOLATE = "Mycophenolate"
+collect recode colname CNI = "Calcineurin Inhibitors" 
 collect recode colname RITUXIMAB = "Rituximab"
 collect recode colname STEROIDS = "Steroids"
 collect recode colname DURATION_GN = "Duration of GN (trend across categories)"
@@ -2020,7 +2111,7 @@ collect stars _r_p 0.01 "***" 0.05 "**" 0.1 "*", attach(_r_b)
 
 // show variables but not the constant term
 collect layout ///
-(colname["Serum albumin, g/dL (per 1 SD unit decrease)" "Urinary Protein, g/day (per 1 SD unit increase)" "Azathioprine" "Mycophenolate" "Rituximab" "Steroids" "Duration of GN (trend across categories)" "SLE history" "SLE GN diagnosis" "Vasculitis" "SLE GN or Vasculitis" "IgA nephropathy" "FSGS or MCD" "Membranous nephropathy" ]#result)  (model)
+(colname["Serum albumin, g/dL (per 1 SD unit decrease)" "Urinary Protein, g/day (per 1 SD unit increase)" "Azathioprine" "Mycophenolate" "Calcineurin Inhibitors" "Rituximab" "Steroids" "Duration of GN (trend across categories)" "SLE history" "SLE GN diagnosis" "Vasculitis" "SLE GN or Vasculitis" "IgA nephropathy" "FSGS or MCD" "Membranous nephropathy" ]#result)  (model)
 
 // for repeating column headers, display them once and center them
 collect style column, dups(center)
